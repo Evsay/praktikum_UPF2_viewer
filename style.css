@@ -1,0 +1,408 @@
+    :root {
+      --bg: #f8f9fa;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --accent: #0f766e;
+      --accent-strong: #0d9488;
+      --accent-soft: #ccfbf1;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background: radial-gradient(circle at 20% 10%, #e8fffb 0%, var(--bg) 45%);
+      color: var(--text);
+    }
+
+    h1 {
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    #loadedFiles {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-height: 36px;
+    }
+
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.2;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #eef2f7;
+      color: var(--text);
+      cursor: pointer;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-chip-name {
+      display: inline-block;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-chip-rename {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.65);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+
+    .file-chip:hover .file-chip-rename {
+      background: #ffffff;
+      color: var(--accent);
+    }
+
+    .file-chip:hover {
+      border-color: var(--accent);
+      background: #e7faf7;
+    }
+
+    .file-chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #115e59;
+      font-weight: 600;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--accent-strong);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+
+    .tab-btn:hover {
+      background: #eef2f7;
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-soft);
+      border-color: #7dd3c7;
+      color: #115e59;
+      font-weight: 600;
+    }
+
+    .tab-panel {
+      display: none;
+      width: 100%;
+      height: 560px;
+      min-height: 320px;
+      min-width: 320px;
+      resize: both;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      resize: none;
+      overflow: auto;         /* Scrollable */
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 15px;
+      padding: 15px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      background-color: var(--panel);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .analytics {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      min-height: 100%;
+      height: 100%;
+      overflow: auto;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    #tab-chart .card {
+      resize: both;
+      overflow: auto;
+      min-width: 260px;
+      min-height: 260px;
+    }
+
+    #tab-chart .desc-card {
+      width: 320px;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #tab-chart .chart-card {
+      flex: 1 1 560px;
+      display: flex;
+      flex-direction: column;
+      min-width: 320px;
+    }
+
+    .card h2 {
+      margin: 0;
+      padding: 12px 14px;
+      font-size: 16px;
+      border-bottom: 1px solid var(--border);
+      background: #f3f6f9;
+    }
+
+    #descPanel {
+      padding: 12px 14px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      max-height: none;
+      height: auto;
+      flex: 1 1 auto;
+      overflow: auto;
+    }
+
+    #descPanel.list-mode {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      white-space: normal;
+      padding: 8px 6px;
+    }
+
+    #descPanel.desc-mode {
+      white-space: normal;
+      line-height: 1.6;
+      padding: 12px 14px;
+    }
+
+    #descPanel.desc-mode > div {
+      margin: 4px 0;
+    }
+
+    #descPanel.desc-mode span {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin: 2px 0;
+    }
+
+    #descPanel.desc-mode span.selected {
+      background: var(--accent-soft);
+      border-left: 3px solid var(--accent);
+      padding-left: 4px;
+      color: #115e59;
+      font-weight: 600;
+    }
+
+    #descSelector {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .selector-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selector-header label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .selector-toggle {
+      padding: 4px 8px;
+      margin-left: auto;
+      font-size: 14px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .selector-toggle:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #descValueSelect {
+      font-size: 13px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: white;
+      color: var(--text);
+      cursor: pointer;
+      width: 100%;
+    }
+
+    #descValueSelect:hover {
+      border-color: var(--accent);
+    }
+
+    #descValueSelect:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+    }
+
+    .desc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .desc-value-item {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: white;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s;
+      text-align: left;
+    }
+
+    .desc-value-item:hover {
+      background: #f0f9fd;
+      border-color: var(--accent);
+    }
+
+    .desc-value-item.selected {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #115e59;
+      font-weight: 600;
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+    }
+
+    #chartInfo {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #chartArea {
+      display: block;
+      width: 100%;
+      height: auto;
+      flex: 1 1 auto;
+      min-height: 240px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    }
+
+    #tab-raw {
+      display: none;
+    }
+
+    #tab-raw.active {
+      display: block;
+    }
+
+    #tab-chart {
+      display: none;
+    }
+
+    #tab-chart.active {
+      display: block;
+    }
+
+    @media (max-width: 900px) {
+      .analytics {
+        flex-direction: column;
+      }
+
+      #tab-chart .card {
+        width: 100%;
+      }
+
+      #descPanel {
+        max-height: 200px;
+      }
+    }

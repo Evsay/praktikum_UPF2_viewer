@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UPF2 Viewer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Load File from Disk</h1>
+    
+    <div class="controls">
+      <button id="loadBtn">📂 Load File from Disk</button>
+      <input type="file" id="fileInput" style="display: none;" multiple>
+      <div id="loadedFiles" aria-live="polite"></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="raw">Raw Content</button>
+      <button class="tab-btn" data-tab="chart">DESC + Chart</button>
+    </div>
+
+    <section id="tab-raw" class="tab-panel active">
+      <textarea id="textArea" placeholder="File content will appear here..."></textarea>
+    </section>
+
+    <section id="tab-chart" class="tab-panel">
+      <div class="analytics">
+        <article class="card desc-card">
+          <h2>DESC</h2>
+          <div id="descPanel">Load a file to show DESC.</div>
+          <div id="descSelector" style="display: none;">
+            <div class="selector-header">
+              <label for="descValueSelect">Visualize:</label>
+              <button id="selectorToggleBtn" class="selector-toggle" title="Toggle view">⊞</button>
+            </div>
+            <select id="descValueSelect"></select>
+          </div>
+        </article>
+
+        <article class="card chart-card">
+          <h2>Chart</h2>
+          <div id="chartInfo">Load a file to generate the chart.</div>
+          <div id="chartArea" role="img" aria-label="Line chart"></div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
