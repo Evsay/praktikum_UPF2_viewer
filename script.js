@@ -18,6 +18,7 @@
     const compareToggleBtn = document.getElementById('compareToggleBtn');
     const descSelector = document.getElementById('descSelector');
     const descValueSelect = document.getElementById('descValueSelect');
+    const descSearchInput = document.getElementById('descSearchInput');
     const selectorToggleBtn = document.getElementById('selectorToggleBtn');
     const loadedFilesEl = document.getElementById('loadedFiles');
     const fileActionModal = document.getElementById('fileActionModal');
@@ -33,6 +34,7 @@
     let selectedDescIndex = 0;
     let useListView = false;
     let currentDescText = '';
+    let currentThingValueType = '';
     let loadedFiles = [];
     let activeFileIndex = -1;
     let modalFileIndex = -1;
@@ -43,8 +45,64 @@
     let rawViewMode = 'single';
     const selectedFileIds = new Set();
     const storageKey = 'upf2ViewerState.v1';
+    let descIdToName = {};
+    let activeMetadataFileId = null;
 
     const seriesPalette = ['#0f766e', '#0284c7', '#f59e0b', '#7c3aed', '#dc2626', '#0891b2'];
+
+    function parseMeasurementMetadata(xmlText) {
+      const mapping = {};
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+      const dtElements = xmlDoc.querySelectorAll('DT[upfDTid]');
+
+      dtElements.forEach((dt) => {
+        const upfId = dt.getAttribute('upfDTid');
+        const nameEl = dt.querySelector('Name[Lang="en"]');
+        if (upfId && nameEl && nameEl.textContent) {
+          mapping[upfId] = nameEl.textContent.trim();
+        }
+      });
+
+      return mapping;
+    }
+
+    function applyMeasurementMetadata(mapping) {
+      descIdToName = mapping || {};
+
+      if (currentRawContent && !isXmlEntry(loadedFiles[activeFileIndex])) {
+        formatDesc(extractDesc(currentRawContent));
+      }
+    }
+
+    function setActiveMetadataFileId(fileId) {
+      activeMetadataFileId = fileId;
+      const metadataEntry = loadedFiles.find((entry) => entry.id === fileId && isXmlEntry(entry));
+      if (!metadataEntry) {
+        applyMeasurementMetadata({});
+        return;
+      }
+
+      const mapping = parseMeasurementMetadata(metadataEntry.content || '');
+      applyMeasurementMetadata(mapping);
+    }
+
+    function loadMeasurementMetadata() {
+      fetch('itdt_utf-8.xml')
+        .then((response) => response.text())
+        .then((xmlText) => {
+          if (activeMetadataFileId) {
+            return;
+          }
+          const mapping = parseMeasurementMetadata(xmlText);
+          applyMeasurementMetadata(mapping);
+        })
+        .catch((err) => console.warn('Could not load measurement metadata:', err));
+    }
+
+    function getMeasurementName(id) {
+      return descIdToName[String(id)] || String(id);
+    }
 
     function readFileAsText(file) {
       return new Promise((resolve, reject) => {
@@ -59,11 +117,21 @@
       return (entry && entry.color) || seriesPalette[index % seriesPalette.length];
     }
 
+    function getFileKind(fileName) {
+      const lowerName = (fileName || '').toLowerCase();
+      return lowerName.endsWith('.xml') ? 'xml' : 'upf';
+    }
+
+    function isXmlEntry(entry) {
+      return entry && entry.kind === 'xml';
+    }
+
     function persistState() {
       try {
         const payload = {
           loadedFiles,
           activeFileId: loadedFiles[activeFileIndex] ? loadedFiles[activeFileIndex].id : null,
+          activeMetadataFileId,
           rawViewMode,
           selectedFileIds: Array.from(selectedFileIds),
           showAllFilesInChart,
@@ -94,7 +162,8 @@
               id: typeof entry.id === 'string' ? entry.id : '',
               name: typeof entry.name === 'string' ? entry.name : 'Unnamed file',
               color: typeof entry.color === 'string' ? entry.color : '',
-              content: typeof entry.content === 'string' ? entry.content : ''
+              content: typeof entry.content === 'string' ? entry.content : '',
+              kind: typeof entry.kind === 'string' ? entry.kind : getFileKind(entry.name)
             }))
             .filter((entry) => entry.id && entry.name)
         : [];
@@ -104,6 +173,10 @@
       }
 
       loadedFiles = files;
+      const restoredMetadataId = typeof parsed.activeMetadataFileId === 'string' ? parsed.activeMetadataFileId : null;
+      if (restoredMetadataId && loadedFiles.some((entry) => entry.id === restoredMetadataId && isXmlEntry(entry))) {
+        setActiveMetadataFileId(restoredMetadataId);
+      }
       selectedFileIds.clear();
 
       const restoredSelectedIds = Array.isArray(parsed.selectedFileIds) ? parsed.selectedFileIds : [];
@@ -153,7 +226,8 @@
         id: createManualFileId(),
         name,
         color: '',
-        content
+        content,
+        kind: getFileKind(name)
       };
     }
 
@@ -379,6 +453,16 @@
       loadedFiles.splice(index, 1);
       selectedFileIds.delete(entry.id);
 
+      if (entry.id === activeMetadataFileId) {
+        const nextXml = loadedFiles.find((candidate) => isXmlEntry(candidate));
+        if (nextXml) {
+          setActiveMetadataFileId(nextXml.id);
+        } else {
+          activeMetadataFileId = null;
+          applyMeasurementMetadata({});
+        }
+      }
+
       if (!loadedFiles.length) {
         clearViewer();
         renderLoadedFiles();
@@ -416,77 +500,130 @@
       fileActionModal.setAttribute('aria-hidden', 'true');
     }
 
+    function createFileChip(entry, index) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `file-chip${index === activeFileIndex ? ' active' : ''}`;
+      chip.dataset.index = String(index);
+      chip.title = entry.name;
+
+      if (isXmlEntry(entry)) {
+        chip.classList.add('file-chip-xml');
+        if (entry.id === activeMetadataFileId) {
+          chip.classList.add('file-chip-metadata-active');
+        }
+      }
+
+      if (selectedFileIds.has(entry.id)) {
+        chip.classList.add('multi-selected');
+      }
+      if (entry.color) {
+        const fillColor = hexToRgba(entry.color, 0.2);
+        const focusColor = hexToRgba(entry.color, 0.45);
+
+        chip.classList.add('file-chip-colored');
+        chip.style.borderColor = entry.color;
+        if (fillColor) {
+          chip.style.backgroundColor = fillColor;
+        }
+        if (focusColor) {
+          chip.style.setProperty('--chip-focus-shadow', focusColor);
+        }
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'file-chip-name';
+      nameSpan.textContent = entry.name;
+
+      const renameSpan = document.createElement('span');
+      renameSpan.className = 'file-chip-rename';
+      renameSpan.title = 'Rename';
+      renameSpan.setAttribute('aria-label', `Rename ${entry.name}`);
+      renameSpan.textContent = '✎';
+
+      chip.appendChild(nameSpan);
+      chip.appendChild(renameSpan);
+
+      chip.addEventListener('click', (event) => {
+        const renameTarget = event.target;
+        if (renameTarget instanceof Element && renameTarget.closest('.file-chip-rename')) {
+          event.stopPropagation();
+          openFileActionModal(index);
+          return;
+        }
+
+        if (isXmlEntry(entry)) {
+          setActiveMetadataFileId(entry.id);
+          renderLoadedFiles();
+          persistState();
+          return;
+        }
+
+        if (rawViewMode === 'multiple') {
+          const wasSelected = selectedFileIds.has(entry.id);
+          if (selectedFileIds.has(entry.id)) {
+            selectedFileIds.delete(entry.id);
+          } else {
+            selectedFileIds.add(entry.id);
+          }
+
+          setActiveFile(index, {
+            keepSplitView: true,
+            preserveMode: true,
+            syncMultiSelection: !wasSelected
+          });
+          updateRawTabView();
+          renderLoadedFiles();
+          persistState();
+          return;
+        }
+
+        setActiveFile(index, { preserveMode: true });
+      });
+
+      return chip;
+    }
+
+    function appendFileGroup(title, entries) {
+      if (!entries.length) {
+        return;
+      }
+
+      const group = document.createElement('div');
+      group.className = 'file-group';
+
+      const groupTitle = document.createElement('div');
+      groupTitle.className = 'file-group-title';
+      groupTitle.textContent = title;
+
+      const chipRow = document.createElement('div');
+      chipRow.className = 'file-group-chips';
+
+      entries.forEach(({ entry, index }) => {
+        chipRow.appendChild(createFileChip(entry, index));
+      });
+
+      group.appendChild(groupTitle);
+      group.appendChild(chipRow);
+      loadedFilesEl.appendChild(group);
+    }
+
     function renderLoadedFiles() {
       loadedFilesEl.innerHTML = '';
 
+      const upfEntries = [];
+      const xmlEntries = [];
+
       loadedFiles.forEach((entry, index) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = `file-chip${index === activeFileIndex ? ' active' : ''}`;
-        chip.dataset.index = String(index);
-        chip.title = entry.name;
-        if (selectedFileIds.has(entry.id)) {
-          chip.classList.add('multi-selected');
+        if (isXmlEntry(entry)) {
+          xmlEntries.push({ entry, index });
+        } else {
+          upfEntries.push({ entry, index });
         }
-        if (entry.color) {
-          const fillColor = hexToRgba(entry.color, 0.2);
-          const focusColor = hexToRgba(entry.color, 0.45);
-
-          chip.classList.add('file-chip-colored');
-          chip.style.borderColor = entry.color;
-          if (fillColor) {
-            chip.style.backgroundColor = fillColor;
-          }
-          if (focusColor) {
-            chip.style.setProperty('--chip-focus-shadow', focusColor);
-          }
-        }
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'file-chip-name';
-        nameSpan.textContent = entry.name;
-
-        const renameSpan = document.createElement('span');
-        renameSpan.className = 'file-chip-rename';
-        renameSpan.title = 'Rename';
-        renameSpan.setAttribute('aria-label', `Rename ${entry.name}`);
-        renameSpan.textContent = '✎';
-
-        chip.appendChild(nameSpan);
-        chip.appendChild(renameSpan);
-
-        chip.addEventListener('click', (event) => {
-          const renameTarget = event.target;
-          if (renameTarget instanceof Element && renameTarget.closest('.file-chip-rename')) {
-            event.stopPropagation();
-            openFileActionModal(index);
-            return;
-          }
-
-          if (rawViewMode === 'multiple') {
-            const wasSelected = selectedFileIds.has(entry.id);
-            if (selectedFileIds.has(entry.id)) {
-              selectedFileIds.delete(entry.id);
-            } else {
-              selectedFileIds.add(entry.id);
-            }
-
-            setActiveFile(index, {
-              keepSplitView: true,
-              preserveMode: true,
-              syncMultiSelection: !wasSelected
-            });
-            updateRawTabView();
-            renderLoadedFiles();
-            persistState();
-            return;
-          }
-
-          setActiveFile(index, { preserveMode: true });
-        });
-
-        loadedFilesEl.appendChild(chip);
       });
+
+      appendFileGroup('UPF Files', upfEntries);
+      appendFileGroup('XML Files', xmlEntries);
     }
 
     function setActiveFile(index, options = {}) {
@@ -552,6 +689,7 @@
     function formatDesc(rawDesc) {
       if (!rawDesc || rawDesc === 'DESC not found.') {
         currentDescValues = [];
+        currentThingValueType = '';
         currentDescText = rawDesc || 'DESC not found.';
         return currentDescText;
       }
@@ -563,12 +701,14 @@
 
       if (!values.length) {
         currentDescValues = [];
+        currentThingValueType = '';
         currentDescText = 'DESC not found.';
         return currentDescText;
       }
 
       const thingValueType = values[0];
       const descValues = values.slice(1);
+      currentThingValueType = thingValueType;
       currentDescValues = descValues;
       selectedDescIndex = 0;
 
@@ -583,19 +723,62 @@
       return currentDescText;
     }
 
+    function highlightSearchMatches(text, query) {
+      if (!query) return text;
+      
+      try {
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedQuery})`, 'gi');
+        const parts = text.split(regex);
+        
+        return parts.map((part, i) => {
+          if (i % 2 === 1) {
+            // Odd indices are the matches - wrap in span
+            return `<span class="desc-search-match">${part}</span>`;
+          }
+          return part;
+        }).join('');
+      } catch (e) {
+        return text;
+      }
+    }
+
+    function getFilteredDescIndexes() {
+      const query = (descSearchInput ? descSearchInput.value : '').trim().toLowerCase();
+      const filteredIndexes = [];
+
+      currentDescValues.forEach((value, index) => {
+        const readableName = getMeasurementName(value);
+        const lookupText = `${value} ${readableName}`.toLowerCase();
+        if (!query || lookupText.includes(query)) {
+          filteredIndexes.push(index);
+        }
+      });
+
+      return filteredIndexes;
+    }
+
 
     function populateDescSelector(descValuesArray) {
       // Always populate dropdown
       descValueSelect.innerHTML = '';
-      descValuesArray.forEach((value, index) => {
+      const filteredIndexes = getFilteredDescIndexes();
+
+      filteredIndexes.forEach((descIndex) => {
+        const value = descValuesArray[descIndex];
         const option = document.createElement('option');
-        option.value = index;
-        option.textContent = value;
+        option.value = descIndex;
+        const label = getMeasurementName(value);
+        option.textContent = label;
+        option.dataset.rawId = value;
         descValueSelect.appendChild(option);
       });
 
       // Show/hide selector based on values
       if (descValuesArray.length > 0) {
+        if (filteredIndexes.length > 0 && !filteredIndexes.includes(selectedDescIndex)) {
+          selectedDescIndex = filteredIndexes[0];
+        }
         descSelector.style.display = 'block';
         updateDescDisplay();
       } else {
@@ -605,17 +788,30 @@
 
     function updateDescDisplay() {
       // Update dropdown selection
-      descValueSelect.value = selectedDescIndex;
+      const filteredIndexes = getFilteredDescIndexes();
+      descValueSelect.value = String(selectedDescIndex);
+
+      if (!filteredIndexes.length) {
+        descPanel.className = 'desc-mode';
+        descPanel.textContent = 'No DESC values match the search.';
+        return;
+      }
 
       if (useListView) {
         // List mode: show clickable items in descPanel
         descPanel.innerHTML = '';
         descPanel.className = 'list-mode';
 
-        currentDescValues.forEach((value, index) => {
+        const query = (descSearchInput ? descSearchInput.value : '').trim().toLowerCase();
+
+        filteredIndexes.forEach((index) => {
+          const value = currentDescValues[index];
           const item = document.createElement('div');
           item.className = 'desc-value-item';
-          item.textContent = value;
+          const readableName = getMeasurementName(value);
+          const displayText = readableName !== value ? `${readableName} (ID: ${value})` : value;
+          const highlightedHtml = highlightSearchMatches(displayText, query);
+          item.innerHTML = highlightedHtml;
           item.dataset.index = index;
 
           if (index === selectedDescIndex) {
@@ -633,29 +829,31 @@
         descPanel.className = 'desc-mode';
         descPanel.innerHTML = '';
 
-        // Parse and display the DESC text with highlighting
-        const lines = currentDescText.split('\n');
-        lines.forEach((line, lineIndex) => {
+        const typeLine = document.createElement('div');
+        typeLine.textContent = `Thing value type: ${currentThingValueType}`;
+        descPanel.appendChild(typeLine);
+
+        const valuesLine = document.createElement('div');
+        valuesLine.textContent = 'Values:';
+        descPanel.appendChild(valuesLine);
+
+        const query = (descSearchInput ? descSearchInput.value : '').trim().toLowerCase();
+
+        filteredIndexes.forEach((index) => {
+          const rawId = currentDescValues[index];
           const lineDiv = document.createElement('div');
 
-          // Check if this line is a DESC value that should be highlighted
-          const valueIndex = currentDescValues.findIndex(v => line.trim() === v);
-          
-          if (valueIndex !== -1) {
-            // This is a DESC value - create a span for it
-            const valueSpan = document.createElement('span');
-            valueSpan.textContent = line.trim();
-            
-            if (valueIndex === selectedDescIndex) {
-              valueSpan.classList.add('selected');
-            }
+          const readableName = getMeasurementName(rawId);
+          const displayText = readableName !== rawId ? `${readableName} (ID: ${rawId})` : rawId;
+          const valueSpan = document.createElement('span');
+          const highlightedHtml = highlightSearchMatches(displayText, query);
+          valueSpan.innerHTML = highlightedHtml;
 
-            lineDiv.appendChild(valueSpan);
-          } else {
-            // This is a header line like "Thing value type:" or "Values:"
-            lineDiv.textContent = line;
+          if (index === selectedDescIndex) {
+            valueSpan.classList.add('selected');
           }
 
+          lineDiv.appendChild(valueSpan);
           descPanel.appendChild(lineDiv);
         });
       }
@@ -861,6 +1059,22 @@
     descValueSelect.addEventListener('change', (event) => {
       selectDescValue(Number.parseInt(event.target.value, 10));
     });
+
+    if (descSearchInput) {
+      descSearchInput.addEventListener('input', () => {
+        if (!currentDescValues.length) {
+          return;
+        }
+
+        const filteredIndexes = getFilteredDescIndexes();
+        if (filteredIndexes.length > 0 && !filteredIndexes.includes(selectedDescIndex)) {
+          selectedDescIndex = filteredIndexes[0];
+          renderLineChart();
+        }
+
+        populateDescSelector(currentDescValues);
+      });
+    }
 
     // Toggle selector view
     selectorToggleBtn.addEventListener('click', toggleSelectorView);
@@ -1079,6 +1293,7 @@
     updateStepToggleButton();
     updateCompareToggleButton();
     updateViewModeButtons();
+    loadMeasurementMetadata();
     restoreState();
 
     // When user selects a file
@@ -1093,7 +1308,8 @@
             id: `${file.name}_${file.size}_${file.lastModified}`,
             name: file.name,
             color: '',
-            content: await readFileAsText(file)
+            content: await readFileAsText(file),
+            kind: getFileKind(file.name)
           }))
         );
 
