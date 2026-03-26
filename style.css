@@ -504,6 +504,14 @@
       padding: 0;
     }
 
+    .chart-title-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
     .chart-toggle-btn {
       padding: 6px 10px;
       border: 1px solid var(--border);

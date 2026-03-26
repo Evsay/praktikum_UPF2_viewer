@@ -14,6 +14,7 @@
     const chartArea = document.getElementById('chartArea');
     const chartCard = document.querySelector('.chart-card');
     const chartInfo = document.getElementById('chartInfo');
+    const stepToggleBtn = document.getElementById('stepToggleBtn');
     const compareToggleBtn = document.getElementById('compareToggleBtn');
     const descSelector = document.getElementById('descSelector');
     const descValueSelect = document.getElementById('descValueSelect');
@@ -36,6 +37,7 @@
     let activeFileIndex = -1;
     let modalFileIndex = -1;
     let activeFileColor = '';
+    let useStepDiagram = false;
     let showAllFilesInChart = false;
     let showRawSplitView = false;
     let rawViewMode = 'single';
@@ -64,7 +66,8 @@
           activeFileId: loadedFiles[activeFileIndex] ? loadedFiles[activeFileIndex].id : null,
           rawViewMode,
           selectedFileIds: Array.from(selectedFileIds),
-          showAllFilesInChart
+          showAllFilesInChart,
+          useStepDiagram
         };
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
       } catch (error) {
@@ -113,6 +116,8 @@
       rawViewMode = parsed.rawViewMode === 'multiple' ? 'multiple' : 'single';
       showRawSplitView = rawViewMode === 'multiple';
       showAllFilesInChart = Boolean(parsed.showAllFilesInChart);
+      useStepDiagram = Boolean(parsed.useStepDiagram);
+      updateStepToggleButton();
       updateCompareToggleButton();
       updateViewModeButtons();
 
@@ -181,6 +186,15 @@
     function updateCompareToggleButton() {
       compareToggleBtn.textContent = showAllFilesInChart ? 'All Files: ON' : 'All Files: OFF';
       compareToggleBtn.classList.toggle('active', showAllFilesInChart);
+    }
+
+    function updateStepToggleButton() {
+      if (!stepToggleBtn) {
+        return;
+      }
+
+      stepToggleBtn.textContent = useStepDiagram ? 'Step Diagram: ON' : 'Step Diagram: OFF';
+      stepToggleBtn.classList.toggle('active', useStepDiagram);
     }
 
     function updateViewModeButtons() {
@@ -281,6 +295,7 @@
       activeFileIndex = -1;
       activeFileColor = '';
       showAllFilesInChart = false;
+      useStepDiagram = false;
       showRawSplitView = false;
       rawViewMode = 'single';
       selectedFileIds.clear();
@@ -298,6 +313,7 @@
       updateViewModeButtons();
       updateRawTabView();
       updateRawEditActions();
+      updateStepToggleButton();
       updateCompareToggleButton();
       persistState();
     }
@@ -794,6 +810,7 @@
             name: entry.name,
             type: 'line',
             smooth: 0.2,
+            step: useStepDiagram ? 'end' : false,
             showSymbol: false,
             lineStyle: {
               color: entry.color,
@@ -854,6 +871,15 @@
       renderLineChart();
       persistState();
     });
+
+    if (stepToggleBtn) {
+      stepToggleBtn.addEventListener('click', () => {
+        useStepDiagram = !useStepDiagram;
+        updateStepToggleButton();
+        renderLineChart();
+        persistState();
+      });
+    }
 
     if (singleViewBtn) {
       singleViewBtn.addEventListener('click', () => {
@@ -1050,6 +1076,7 @@
       deleteLoadedFile(activeFileIndex);
     });
 
+    updateStepToggleButton();
     updateCompareToggleButton();
     updateViewModeButtons();
     restoreState();
