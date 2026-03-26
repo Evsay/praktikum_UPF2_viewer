@@ -16,6 +16,10 @@
       <button id="loadBtn">📂 Load File from Disk</button>
       <input type="file" id="fileInput" style="display: none;" multiple>
       <div id="loadedFiles" aria-live="polite"></div>
+      <div class="view-mode-controls" role="group" aria-label="Raw content view mode">
+        <button id="singleViewBtn" class="view-mode-btn active" type="button">Single File</button>
+        <button id="multiViewBtn" class="view-mode-btn" type="button">Multiple View</button>
+      </div>
     </div>
 
     <div class="tabs">
@@ -25,6 +29,12 @@
 
     <section id="tab-raw" class="tab-panel active">
       <textarea id="textArea" placeholder="File content will appear here..."></textarea>
+      <div id="rawEditActions" class="raw-edit-actions hidden">
+        <button id="keepEditedFileBtn" class="raw-edit-btn" type="button">Keep Current File</button>
+        <button id="createEditedFileBtn" class="raw-edit-btn" type="button">Create New File</button>
+        <button id="discardEditedFileBtn" class="raw-edit-btn" type="button">Discard Draft</button>
+      </div>
+      <div id="rawSplitView" class="raw-split-view hidden" aria-live="polite"></div>
     </section>
 
     <section id="tab-chart" class="tab-panel">
@@ -42,12 +52,32 @@
         </article>
 
         <article class="card chart-card">
-          <h2>Chart</h2>
+          <div class="chart-title-row">
+            <h2>Chart</h2>
+            <button id="compareToggleBtn" class="chart-toggle-btn" type="button">All Files: OFF</button>
+          </div>
           <div id="chartInfo">Load a file to generate the chart.</div>
           <div id="chartArea" role="img" aria-label="Line chart"></div>
         </article>
       </div>
     </section>
+  </div>
+
+  <div id="fileActionModal" class="file-action-modal hidden" aria-hidden="true">
+    <div class="file-action-card" role="dialog" aria-modal="true" aria-labelledby="fileActionTitle">
+      <h3 id="fileActionTitle">File action</h3>
+      <div class="file-action-row" id="fileActionButtons">
+        <button id="actionRenameBtn" type="button" class="modal-btn">Rename</button>
+        <button id="actionRecolorBtn" type="button" class="modal-btn">Recolor</button>
+        <button id="actionDeleteBtn" type="button" class="modal-btn">Delete</button>
+      </div>
+      <div class="file-color-row hidden" id="fileColorChoices">
+        <button type="button" class="color-choice" data-color="#ffd166" aria-label="Yellow"></button>
+        <button type="button" class="color-choice" data-color="#90e0ef" aria-label="Blue"></button>
+        <button type="button" class="color-choice" data-color="#0f766e" aria-label="Green"></button>
+      </div>
+      <button id="actionCloseBtn" type="button" class="modal-close">Close</button>
+    </div>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>

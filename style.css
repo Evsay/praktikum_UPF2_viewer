@@ -12,6 +12,7 @@
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 20px;
+      min-height: 100vh;
       background: radial-gradient(circle at 20% 10%, #e8fffb 0%, var(--bg) 45%);
       color: var(--text);
     }
@@ -22,8 +23,13 @@
     }
 
     .container {
-      max-width: 1080px;
-      margin: 0 auto;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      height: calc(100vh - 40px);
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      gap: 0;
     }
 
     .controls {
@@ -42,6 +48,37 @@
       min-height: 36px;
     }
 
+    .view-mode-controls {
+      margin-left: auto;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .view-mode-btn {
+      padding: 7px 12px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--muted);
+      line-height: 1.1;
+    }
+
+    .view-mode-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
+    }
+
+    .view-mode-btn.active {
+      border-color: #7dd3c7;
+      color: #115e59;
+      background: var(--accent-soft);
+      font-weight: 600;
+    }
+
     .file-chip {
       display: inline-flex;
       align-items: center;
@@ -58,6 +95,16 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      outline: none;
+    }
+
+    .file-chip.file-chip-colored {
+      border-width: 2px;
+    }
+
+    .file-chip.file-chip-colored:focus-visible,
+    .file-chip.file-chip-colored.active {
+      box-shadow: 0 0 0 3px var(--chip-focus-shadow, rgba(15, 118, 110, 0.35));
     }
 
     .file-chip-name {
@@ -97,6 +144,194 @@
       border-color: var(--accent);
       color: #115e59;
       font-weight: 600;
+    }
+
+    .file-chip.multi-selected .file-chip-name {
+      text-decoration-line: underline;
+      text-decoration-style: double;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 2px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .file-action-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .file-action-card {
+      width: 280px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+      padding: 14px;
+    }
+
+    .file-action-card h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .file-action-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #f8fafc;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .modal-btn:hover {
+      border-color: var(--accent);
+      background: #e7faf7;
+    }
+
+    .file-color-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .color-choice {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid #d1d5db;
+      cursor: pointer;
+      padding: 0;
+      outline: none;
+    }
+
+    .color-choice[data-color="#ffd166"] {
+      background: #ffd166;
+    }
+
+    .color-choice[data-color="#90e0ef"] {
+      background: #90e0ef;
+    }
+
+    .color-choice[data-color="#0f766e"] {
+      background: #0f766e;
+    }
+
+    .color-choice:hover {
+      border-color: #111827;
+      transform: scale(1.05);
+    }
+
+    .modal-close {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      border-color: #9ca3af;
+      color: var(--text);
+    }
+
+    .raw-split-view {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .raw-edit-actions {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      display: inline-flex;
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .raw-edit-btn {
+      padding: 8px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--muted);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+    }
+
+    .raw-edit-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
+    }
+
+    .raw-split-pane {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 100%;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: var(--panel);
+    }
+
+    .raw-split-pane:last-child {
+      border-right: none;
+    }
+
+    .raw-split-title {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      background: #f3f6f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .raw-split-content {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      border: none;
+      border-radius: 0;
+      padding: 12px;
+      margin: 0;
+      resize: none;
+      box-sizing: border-box;
+      font-size: 13px;
+      line-height: 1.4;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--text);
+      background: var(--panel);
+      overflow: auto;
+      box-shadow: none;
     }
 
     button {
@@ -146,11 +381,11 @@
     .tab-panel {
       display: none;
       width: 100%;
-      height: 560px;
-      min-height: 320px;
+      height: 100%;
+      min-height: 0;
       min-width: 320px;
-      resize: both;
-      overflow: auto;
+      resize: none;
+      overflow: hidden;
       border: 1px solid var(--border);
       border-radius: 10px;
       background: var(--panel);
@@ -161,14 +396,16 @@
 
     .tab-panel.active {
       display: block;
+      height: 100%;
     }
 
     textarea {
       width: 100%;
       height: 100%;
-      min-height: 280px;
+      min-height: 0;
       resize: none;
-      overflow: auto;         /* Scrollable */
+      overflow: auto;
+      box-sizing: border-box;
       font-family: 'Consolas', 'Courier New', monospace;
       font-size: 15px;
       padding: 15px;
@@ -187,6 +424,20 @@
       overflow: auto;
     }
 
+    #tab-chart {
+      resize: none;
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    #tab-chart .analytics {
+      align-items: stretch;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -196,24 +447,37 @@
     }
 
     #tab-chart .card {
-      resize: both;
-      overflow: auto;
+      resize: none;
+      overflow: hidden;
       min-width: 260px;
       min-height: 260px;
     }
 
     #tab-chart .desc-card {
-      width: 320px;
-      min-width: 140px;
+      width: auto;
+      min-width: 0;
+      flex: 1 1 34%;
       display: flex;
       flex-direction: column;
     }
 
     #tab-chart .chart-card {
-      flex: 1 1 560px;
+      flex: 1 1 66%;
       display: flex;
       flex-direction: column;
-      min-width: 320px;
+      min-width: 0;
+    }
+
+    /* Hide scrollbars in the second tab while keeping layout fixed */
+    #tab-chart,
+    #tab-chart * {
+      scrollbar-width: none;
+    }
+
+    #tab-chart::-webkit-scrollbar,
+    #tab-chart *::-webkit-scrollbar {
+      width: 0;
+      height: 0;
     }
 
     .card h2 {
@@ -222,6 +486,46 @@
       font-size: 16px;
       border-bottom: 1px solid var(--border);
       background: #f3f6f9;
+    }
+
+    .chart-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #f3f6f9;
+      gap: 10px;
+    }
+
+    .chart-title-row h2 {
+      border-bottom: none;
+      background: transparent;
+      padding: 0;
+    }
+
+    .chart-toggle-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .chart-toggle-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
+    }
+
+    .chart-toggle-btn.active {
+      border-color: var(--accent);
+      color: #115e59;
+      background: var(--accent-soft);
+      font-weight: 600;
     }
 
     #descPanel {
@@ -382,7 +686,14 @@
     }
 
     #tab-raw.active {
-      display: block;
+      display: flex;
+      min-height: 0;
+      align-items: stretch;
+      position: relative;
+    }
+
+    #tab-raw #textArea {
+      flex: 1 1 auto;
     }
 
     #tab-chart {

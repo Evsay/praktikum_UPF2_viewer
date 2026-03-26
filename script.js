@@ -1,16 +1,31 @@
   const loadBtn = document.getElementById('loadBtn');
     const fileInput = document.getElementById('fileInput');
     const textArea = document.getElementById('textArea');
+  const rawSplitView = document.getElementById('rawSplitView');
+    const rawEditActions = document.getElementById('rawEditActions');
+    const keepEditedFileBtn = document.getElementById('keepEditedFileBtn');
+    const createEditedFileBtn = document.getElementById('createEditedFileBtn');
+    const discardEditedFileBtn = document.getElementById('discardEditedFileBtn');
+    const singleViewBtn = document.getElementById('singleViewBtn');
+    const multiViewBtn = document.getElementById('multiViewBtn');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanels = document.querySelectorAll('.tab-panel');
     const descPanel = document.getElementById('descPanel');
     const chartArea = document.getElementById('chartArea');
     const chartCard = document.querySelector('.chart-card');
     const chartInfo = document.getElementById('chartInfo');
+    const compareToggleBtn = document.getElementById('compareToggleBtn');
     const descSelector = document.getElementById('descSelector');
     const descValueSelect = document.getElementById('descValueSelect');
     const selectorToggleBtn = document.getElementById('selectorToggleBtn');
     const loadedFilesEl = document.getElementById('loadedFiles');
+    const fileActionModal = document.getElementById('fileActionModal');
+    const actionRenameBtn = document.getElementById('actionRenameBtn');
+    const actionRecolorBtn = document.getElementById('actionRecolorBtn');
+    const actionDeleteBtn = document.getElementById('actionDeleteBtn');
+    const actionCloseBtn = document.getElementById('actionCloseBtn');
+    const fileColorChoices = document.getElementById('fileColorChoices');
+    const colorChoiceButtons = document.querySelectorAll('.color-choice');
     let chartInstance = null;
     let currentDescValues = [];
     let currentRawContent = '';
@@ -19,6 +34,15 @@
     let currentDescText = '';
     let loadedFiles = [];
     let activeFileIndex = -1;
+    let modalFileIndex = -1;
+    let activeFileColor = '';
+    let showAllFilesInChart = false;
+    let showRawSplitView = false;
+    let rawViewMode = 'single';
+    const selectedFileIds = new Set();
+    const storageKey = 'upf2ViewerState.v1';
+
+    const seriesPalette = ['#0f766e', '#0284c7', '#f59e0b', '#7c3aed', '#dc2626', '#0891b2'];
 
     function readFileAsText(file) {
       return new Promise((resolve, reject) => {
@@ -29,9 +53,194 @@
       });
     }
 
+    function getSeriesColor(entry, index) {
+      return (entry && entry.color) || seriesPalette[index % seriesPalette.length];
+    }
+
+    function persistState() {
+      try {
+        const payload = {
+          loadedFiles,
+          activeFileId: loadedFiles[activeFileIndex] ? loadedFiles[activeFileIndex].id : null,
+          rawViewMode,
+          selectedFileIds: Array.from(selectedFileIds),
+          showAllFilesInChart
+        };
+        window.localStorage.setItem(storageKey, JSON.stringify(payload));
+      } catch (error) {
+        // Ignore persistence errors (e.g., storage quota exceeded).
+      }
+    }
+
+    function restoreState() {
+      let parsed;
+
+      try {
+        const storedValue = window.localStorage.getItem(storageKey);
+        if (!storedValue) {
+          return;
+        }
+        parsed = JSON.parse(storedValue);
+      } catch (error) {
+        return;
+      }
+
+      const files = Array.isArray(parsed.loadedFiles)
+        ? parsed.loadedFiles
+            .map((entry) => ({
+              id: typeof entry.id === 'string' ? entry.id : '',
+              name: typeof entry.name === 'string' ? entry.name : 'Unnamed file',
+              color: typeof entry.color === 'string' ? entry.color : '',
+              content: typeof entry.content === 'string' ? entry.content : ''
+            }))
+            .filter((entry) => entry.id && entry.name)
+        : [];
+
+      if (!files.length) {
+        return;
+      }
+
+      loadedFiles = files;
+      selectedFileIds.clear();
+
+      const restoredSelectedIds = Array.isArray(parsed.selectedFileIds) ? parsed.selectedFileIds : [];
+      restoredSelectedIds.forEach((id) => {
+        if (typeof id === 'string' && loadedFiles.some((entry) => entry.id === id)) {
+          selectedFileIds.add(id);
+        }
+      });
+
+      rawViewMode = parsed.rawViewMode === 'multiple' ? 'multiple' : 'single';
+      showRawSplitView = rawViewMode === 'multiple';
+      showAllFilesInChart = Boolean(parsed.showAllFilesInChart);
+      updateCompareToggleButton();
+      updateViewModeButtons();
+
+      const restoredActiveId = typeof parsed.activeFileId === 'string' ? parsed.activeFileId : '';
+      const restoredActiveIndex = loadedFiles.findIndex((entry) => entry.id === restoredActiveId);
+      const nextIndex = restoredActiveIndex >= 0 ? restoredActiveIndex : 0;
+
+      if (rawViewMode === 'multiple' && !selectedFileIds.size && loadedFiles[nextIndex]) {
+        selectedFileIds.add(loadedFiles[nextIndex].id);
+      }
+
+      setActiveFile(nextIndex, {
+        keepSplitView: rawViewMode === 'multiple',
+        preserveMode: true,
+        syncMultiSelection: false
+      });
+
+      renderLoadedFiles();
+      updateRawTabView();
+    }
+
+    function createManualFileId() {
+      return `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function promptForFileName(defaultName = 'new_file.upf2') {
+      const nextName = window.prompt('Name for the new file:', defaultName);
+      return sanitizeFileName(nextName);
+    }
+
+    function createFileEntry(name, content) {
+      return {
+        id: createManualFileId(),
+        name,
+        color: '',
+        content
+      };
+    }
+
+    function updateRawEditActions() {
+      if (!rawEditActions || !textArea) {
+        return;
+      }
+
+      const activeEntry = loadedFiles[activeFileIndex];
+      const canEditInSingleMode = rawViewMode === 'single' && !textArea.classList.contains('hidden');
+      const isDirty = Boolean(activeEntry) && textArea.value !== activeEntry.content;
+
+      rawEditActions.classList.toggle('hidden', !(canEditInSingleMode && isDirty));
+    }
+
+    function createNewFileFromEditor(content, defaultName) {
+      const fileName = promptForFileName(defaultName);
+      if (!fileName) {
+        return null;
+      }
+
+      const newEntry = createFileEntry(fileName, content);
+      loadedFiles.push(newEntry);
+      persistState();
+      const newIndex = loadedFiles.length - 1;
+      setActiveFile(newIndex, { preserveMode: true, syncMultiSelection: false });
+      return newEntry;
+    }
+
+    function updateCompareToggleButton() {
+      compareToggleBtn.textContent = showAllFilesInChart ? 'All Files: ON' : 'All Files: OFF';
+      compareToggleBtn.classList.toggle('active', showAllFilesInChart);
+    }
+
+    function updateViewModeButtons() {
+      if (singleViewBtn) {
+        singleViewBtn.classList.toggle('active', rawViewMode === 'single');
+      }
+      if (multiViewBtn) {
+        multiViewBtn.classList.toggle('active', rawViewMode === 'multiple');
+      }
+    }
+
+    function setRawViewMode(mode) {
+      rawViewMode = mode === 'multiple' ? 'multiple' : 'single';
+      showRawSplitView = rawViewMode === 'multiple';
+
+      if (rawViewMode === 'multiple' && activeFileIndex >= 0 && loadedFiles[activeFileIndex]) {
+        selectedFileIds.add(loadedFiles[activeFileIndex].id);
+      }
+
+      updateViewModeButtons();
+      updateRawTabView();
+      renderLoadedFiles();
+      updateRawEditActions();
+      persistState();
+    }
+
+    function getSplitViewFiles() {
+      const selectedFiles = loadedFiles.filter((entry) => selectedFileIds.has(entry.id));
+      if (selectedFiles.length > 0) {
+        return selectedFiles;
+      }
+
+      const activeFile = loadedFiles[activeFileIndex];
+      return activeFile ? [activeFile] : [];
+    }
+
     function sanitizeFileName(name) {
       const cleaned = (name || '').trim();
       return cleaned.length ? cleaned : null;
+    }
+
+    function hexToRgba(hex, alpha) {
+      if (typeof hex !== 'string') {
+        return '';
+      }
+
+      const normalized = hex.trim().replace('#', '');
+      if (normalized.length !== 6) {
+        return '';
+      }
+
+      const r = Number.parseInt(normalized.slice(0, 2), 16);
+      const g = Number.parseInt(normalized.slice(2, 4), 16);
+      const b = Number.parseInt(normalized.slice(4, 6), 16);
+
+      if (![r, g, b].every(Number.isFinite)) {
+        return '';
+      }
+
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
     function renameLoadedFile(index) {
@@ -48,6 +257,147 @@
 
       entry.name = safeName;
       renderLoadedFiles();
+      persistState();
+    }
+
+    function recolorLoadedFile(index, color) {
+      const entry = loadedFiles[index];
+      if (!entry) {
+        return;
+      }
+
+      entry.color = color;
+      renderLoadedFiles();
+
+      if (index === activeFileIndex && currentRawContent) {
+        activeFileColor = color || '';
+        renderLineChart(extractSeries(currentRawContent, selectedDescIndex));
+      }
+
+      persistState();
+    }
+
+    function clearViewer() {
+      activeFileIndex = -1;
+      activeFileColor = '';
+      showAllFilesInChart = false;
+      showRawSplitView = false;
+      rawViewMode = 'single';
+      selectedFileIds.clear();
+      currentRawContent = '';
+      currentDescValues = [];
+      currentDescText = 'Load a file to show DESC.';
+      textArea.value = '';
+      descPanel.className = '';
+      descPanel.textContent = 'Load a file to show DESC.';
+      descSelector.style.display = 'none';
+      chartInfo.textContent = 'Load a file to generate the chart.';
+      if (chartInstance) {
+        chartInstance.clear();
+      }
+      updateViewModeButtons();
+      updateRawTabView();
+      updateRawEditActions();
+      updateCompareToggleButton();
+      persistState();
+    }
+
+    function renderRawSplitView() {
+      if (!rawSplitView) {
+        return;
+      }
+
+      rawSplitView.innerHTML = '';
+
+      getSplitViewFiles().forEach((entry) => {
+        const pane = document.createElement('section');
+        pane.className = 'raw-split-pane';
+
+        const title = document.createElement('div');
+        title.className = 'raw-split-title';
+        title.textContent = entry.name;
+
+        const content = document.createElement('textarea');
+        content.className = 'raw-split-content';
+        content.readOnly = true;
+        content.spellcheck = false;
+        content.value = entry.content;
+
+        pane.appendChild(title);
+        pane.appendChild(content);
+        rawSplitView.appendChild(pane);
+      });
+    }
+
+    function updateRawTabView() {
+      if (!textArea || !rawSplitView) {
+        return;
+      }
+
+      const splitFiles = getSplitViewFiles();
+      const canShowSplit = showRawSplitView && rawViewMode === 'multiple' && splitFiles.length > 1;
+      if (!canShowSplit) {
+        rawSplitView.classList.add('hidden');
+        textArea.classList.remove('hidden');
+        updateRawEditActions();
+        return;
+      }
+
+      renderRawSplitView();
+      textArea.classList.add('hidden');
+      rawSplitView.classList.remove('hidden');
+      updateRawEditActions();
+    }
+
+    function deleteLoadedFile(index) {
+      const entry = loadedFiles[index];
+      if (!entry) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete "${entry.name}" from loaded files?`);
+      if (!confirmed) {
+        return;
+      }
+
+      loadedFiles.splice(index, 1);
+      selectedFileIds.delete(entry.id);
+
+      if (!loadedFiles.length) {
+        clearViewer();
+        renderLoadedFiles();
+        return;
+      }
+
+      if (activeFileIndex === index) {
+        const nextIndex = Math.min(index, loadedFiles.length - 1);
+        setActiveFile(nextIndex);
+        return;
+      }
+
+      if (activeFileIndex > index) {
+        activeFileIndex -= 1;
+      }
+
+      renderLoadedFiles();
+      renderLineChart();
+      updateRawTabView();
+      updateRawEditActions();
+      persistState();
+    }
+
+    function openFileActionModal(index) {
+      modalFileIndex = index;
+      fileColorChoices.classList.add('hidden');
+      fileActionModal.classList.remove('hidden');
+      fileActionModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeFileActionModal() {
+      modalFileIndex = -1;
+      fileColorChoices.classList.add('hidden');
+      fileActionModal.classList.add('hidden');
+      fileActionModal.setAttribute('aria-hidden', 'true');
     }
 
     function renderLoadedFiles() {
@@ -59,6 +409,22 @@
         chip.className = `file-chip${index === activeFileIndex ? ' active' : ''}`;
         chip.dataset.index = String(index);
         chip.title = entry.name;
+        if (selectedFileIds.has(entry.id)) {
+          chip.classList.add('multi-selected');
+        }
+        if (entry.color) {
+          const fillColor = hexToRgba(entry.color, 0.2);
+          const focusColor = hexToRgba(entry.color, 0.45);
+
+          chip.classList.add('file-chip-colored');
+          chip.style.borderColor = entry.color;
+          if (fillColor) {
+            chip.style.backgroundColor = fillColor;
+          }
+          if (focusColor) {
+            chip.style.setProperty('--chip-focus-shadow', focusColor);
+          }
+        }
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'file-chip-name';
@@ -77,29 +443,65 @@
           const renameTarget = event.target;
           if (renameTarget instanceof Element && renameTarget.closest('.file-chip-rename')) {
             event.stopPropagation();
-            renameLoadedFile(index);
+            openFileActionModal(index);
             return;
           }
 
-          setActiveFile(index);
+          if (rawViewMode === 'multiple') {
+            const wasSelected = selectedFileIds.has(entry.id);
+            if (selectedFileIds.has(entry.id)) {
+              selectedFileIds.delete(entry.id);
+            } else {
+              selectedFileIds.add(entry.id);
+            }
+
+            setActiveFile(index, {
+              keepSplitView: true,
+              preserveMode: true,
+              syncMultiSelection: !wasSelected
+            });
+            updateRawTabView();
+            renderLoadedFiles();
+            persistState();
+            return;
+          }
+
+          setActiveFile(index, { preserveMode: true });
         });
 
         loadedFilesEl.appendChild(chip);
       });
     }
 
-    function setActiveFile(index) {
+    function setActiveFile(index, options = {}) {
+      const keepSplitView = Boolean(options.keepSplitView);
+      const preserveMode = Boolean(options.preserveMode);
+      const syncMultiSelection = options.syncMultiSelection !== false;
       const selectedFile = loadedFiles[index];
       if (!selectedFile) {
         return;
       }
 
       activeFileIndex = index;
+      activeFileColor = selectedFile.color || '';
       currentRawContent = selectedFile.content;
       textArea.value = selectedFile.content;
+      if (!keepSplitView) {
+        showRawSplitView = rawViewMode === 'multiple';
+      }
+      if (!preserveMode) {
+        rawViewMode = 'single';
+      }
+      if (rawViewMode === 'multiple' && syncMultiSelection) {
+        selectedFileIds.add(selectedFile.id);
+      }
       formatDesc(extractDesc(selectedFile.content));
-      renderLineChart(extractSeries(selectedFile.content, selectedDescIndex));
+      renderLineChart();
+      updateViewModeButtons();
       renderLoadedFiles();
+      updateRawTabView();
+      updateRawEditActions();
+      persistState();
     }
 
     function switchTab(tabName) {
@@ -246,7 +648,7 @@
     function selectDescValue(index) {
       selectedDescIndex = index;
       updateDescDisplay();
-      renderLineChart(extractSeries(currentRawContent, selectedDescIndex));
+      renderLineChart();
     }
 
     function toggleSelectorView() {
@@ -273,8 +675,38 @@
       return points;
     }
 
-    function renderLineChart(points) {
-      if (!points.length) {
+    function renderLineChart() {
+      let series = [];
+      let sampleCount = 0;
+
+      if (showAllFilesInChart) {
+        series = loadedFiles
+          .map((entry, index) => {
+            const points = extractSeries(entry.content, selectedDescIndex);
+            sampleCount += points.length;
+            return {
+              name: entry.name,
+              points,
+              color: getSeriesColor(entry, index)
+            };
+          })
+          .filter((s) => s.points.length > 0);
+      } else {
+        const activeEntry = loadedFiles[activeFileIndex];
+        const points = extractSeries(currentRawContent, selectedDescIndex);
+        sampleCount = points.length;
+        if (points.length) {
+          series = [
+            {
+              name: activeEntry ? activeEntry.name : 'Active File',
+              points,
+              color: activeFileColor || '#0f766e'
+            }
+          ];
+        }
+      }
+
+      if (!series.length) {
         chartInfo.textContent = 'No MD chart data found in this file.';
         if (chartInstance) {
           chartInstance.clear();
@@ -287,7 +719,8 @@
         return;
       }
 
-      const values = points.map((p) => p.value);
+      const allValues = series.flatMap((s) => s.points.map((p) => p.value));
+      const values = allValues;
       const min = Math.min(...values);
       const max = Math.max(...values);
 
@@ -325,9 +758,15 @@
           trigger: 'axis',
           valueFormatter: (value) => Number(value).toFixed(3)
         },
+        legend: {
+          show: showAllFilesInChart,
+          top: 2,
+          textStyle: {
+            color: '#6b7280'
+          }
+        },
         xAxis: {
-          type: 'category',
-          data: points.map((p) => p.timestamp),
+          type: 'time',
           boundaryGap: false,
           axisLabel: {
             color: '#6b7280',
@@ -351,27 +790,34 @@
           }
         },
         series: [
-          {
-            name: 'First MD Value',
+          ...series.map((entry, index) => ({
+            name: entry.name,
             type: 'line',
             smooth: 0.2,
             showSymbol: false,
             lineStyle: {
-              color: '#0f766e',
+              color: entry.color,
               width: 2
             },
-            areaStyle: {
-              color: 'rgba(15, 118, 110, 0.10)'
-            },
-            data: points.map((p) => p.value)
-          }
+            areaStyle: showAllFilesInChart
+              ? undefined
+              : {
+                  color: entry.color,
+                  opacity: 0.15
+                },
+            data: entry.points.map((p) => [p.timestamp, p.value])
+          }))
         ]
       });
 
       chartInstance.resize();
 
-      const last = points[points.length - 1];
-      chartInfo.textContent = `Samples: ${points.length} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Last (${last.timestamp}): ${last.value.toFixed(3)} | Mouse wheel: zoom X`;
+      if (showAllFilesInChart) {
+        chartInfo.textContent = `Series: ${series.length} | Samples: ${sampleCount} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Mouse wheel: zoom X`;
+      } else {
+        const last = series[0].points[series[0].points.length - 1];
+        chartInfo.textContent = `Samples: ${series[0].points.length} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Last (${last.timestamp}): ${last.value.toFixed(3)} | Mouse wheel: zoom X`;
+      }
     }
 
     const resizeChart = () => {
@@ -402,6 +848,97 @@
     // Toggle selector view
     selectorToggleBtn.addEventListener('click', toggleSelectorView);
 
+    compareToggleBtn.addEventListener('click', () => {
+      showAllFilesInChart = !showAllFilesInChart;
+      updateCompareToggleButton();
+      renderLineChart();
+      persistState();
+    });
+
+    if (singleViewBtn) {
+      singleViewBtn.addEventListener('click', () => {
+        setRawViewMode('single');
+      });
+    }
+
+    if (multiViewBtn) {
+      multiViewBtn.addEventListener('click', () => {
+        if (activeFileIndex >= 0 && loadedFiles[activeFileIndex]) {
+          selectedFileIds.add(loadedFiles[activeFileIndex].id);
+        }
+        setRawViewMode('multiple');
+      });
+    }
+
+    if (textArea) {
+      textArea.addEventListener('input', () => {
+        updateRawEditActions();
+      });
+
+      textArea.addEventListener('paste', (event) => {
+        const hasActiveFile = activeFileIndex >= 0 && Boolean(loadedFiles[activeFileIndex]);
+        const isBlankEditor = !hasActiveFile && !textArea.value.trim();
+        if (!isBlankEditor) {
+          return;
+        }
+
+        const pastedText = event.clipboardData ? event.clipboardData.getData('text') : '';
+        if (!pastedText) {
+          return;
+        }
+
+        event.preventDefault();
+        const createdEntry = createNewFileFromEditor(pastedText, 'pasted_file.upf2');
+        if (!createdEntry) {
+          return;
+        }
+
+        textArea.value = createdEntry.content;
+        updateRawEditActions();
+      });
+    }
+
+    if (keepEditedFileBtn) {
+      keepEditedFileBtn.addEventListener('click', () => {
+        const activeEntry = loadedFiles[activeFileIndex];
+        if (!activeEntry) {
+          return;
+        }
+
+        activeEntry.content = textArea.value;
+        currentRawContent = activeEntry.content;
+        textArea.value = activeEntry.content;
+        formatDesc(extractDesc(activeEntry.content));
+        renderLineChart();
+        updateRawEditActions();
+        persistState();
+      });
+    }
+
+    if (createEditedFileBtn) {
+      createEditedFileBtn.addEventListener('click', () => {
+        const content = textArea.value;
+        const activeEntry = loadedFiles[activeFileIndex];
+        const defaultName = activeEntry ? `${activeEntry.name}_copy.upf2` : 'new_file.upf2';
+        const createdEntry = createNewFileFromEditor(content, defaultName);
+        if (!createdEntry) {
+          return;
+        }
+
+        setRawViewMode('single');
+        textArea.value = createdEntry.content;
+        updateRawEditActions();
+      });
+    }
+
+    if (discardEditedFileBtn) {
+      discardEditedFileBtn.addEventListener('click', () => {
+        const activeEntry = loadedFiles[activeFileIndex];
+        textArea.value = activeEntry ? activeEntry.content : '';
+        updateRawEditActions();
+      });
+    }
+
     // F2 rename for focused file chip
     loadedFilesEl.addEventListener('keydown', (event) => {
       if (event.key !== 'F2') {
@@ -427,6 +964,46 @@
       renameLoadedFile(index);
     });
 
+    actionRenameBtn.addEventListener('click', () => {
+      if (modalFileIndex < 0) {
+        return;
+      }
+      renameLoadedFile(modalFileIndex);
+      closeFileActionModal();
+    });
+
+    actionRecolorBtn.addEventListener('click', () => {
+      fileColorChoices.classList.remove('hidden');
+    });
+
+    actionDeleteBtn.addEventListener('click', () => {
+      if (modalFileIndex < 0) {
+        return;
+      }
+
+      deleteLoadedFile(modalFileIndex);
+      closeFileActionModal();
+    });
+
+    colorChoiceButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (modalFileIndex < 0) {
+          return;
+        }
+
+        const color = btn.getAttribute('data-color') || '';
+        recolorLoadedFile(modalFileIndex, color);
+        closeFileActionModal();
+      });
+    });
+
+    actionCloseBtn.addEventListener('click', closeFileActionModal);
+    fileActionModal.addEventListener('click', (event) => {
+      if (event.target === fileActionModal) {
+        closeFileActionModal();
+      }
+    });
+
     // F2 fallback: rename currently active file unless typing in an input control
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'F2') {
@@ -450,6 +1027,33 @@
       renameLoadedFile(activeFileIndex);
     });
 
+    // Delete key: delete currently active file unless typing in an input control
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Delete') {
+        return;
+      }
+
+      const activeElement = document.activeElement;
+      const isTypingTarget = activeElement instanceof HTMLInputElement
+        || activeElement instanceof HTMLTextAreaElement
+        || (activeElement instanceof Element && activeElement.isContentEditable);
+
+      if (isTypingTarget) {
+        return;
+      }
+
+      if (activeFileIndex < 0 || !loadedFiles[activeFileIndex]) {
+        return;
+      }
+
+      event.preventDefault();
+      deleteLoadedFile(activeFileIndex);
+    });
+
+    updateCompareToggleButton();
+    updateViewModeButtons();
+    restoreState();
+
     // When user selects a file
     fileInput.addEventListener('change', async (event) => {
       const files = Array.from(event.target.files || []);
@@ -461,6 +1065,7 @@
           files.map(async (file) => ({
             id: `${file.name}_${file.size}_${file.lastModified}`,
             name: file.name,
+            color: '',
             content: await readFileAsText(file)
           }))
         );
@@ -485,6 +1090,7 @@
 
         renderLoadedFiles();
         fileInput.value = '';
+        persistState();
       } catch (error) {
         alert('Error reading file(s). Please try again.');
       }
