@@ -614,6 +614,14 @@
       font-weight: 600;
     }
 
+    .chart-toggle-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: #d1d5db;
+      color: #9ca3af;
+      background: #f8fafc;
+    }
+
     #descPanel {
       padding: 12px 14px;
       font-family: 'Consolas', 'Courier New', monospace;
@@ -679,6 +687,30 @@
       margin: 0;
     }
 
+    .favorites-sort-btn {
+      margin-left: auto;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .favorites-sort-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
+    }
+
+    .favorites-sort-btn.active {
+      border-color: #7dd3c7;
+      color: #115e59;
+      background: var(--accent-soft);
+    }
+
     .selector-toggle {
       padding: 4px 8px;
       margin-left: auto;
@@ -697,25 +729,40 @@
       color: var(--accent);
     }
 
-    #descValueSelect {
-      font-size: 13px;
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: white;
-      color: var(--text);
+    .desc-axis-actions {
+      margin-top: 8px;
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .desc-axis-btn {
+      padding: 2px 8px;
+      border: 1px solid #94a3b8;
+      border-radius: 999px;
+      font-size: 11px;
+      line-height: 1.2;
+      color: #334155;
+      background: #ffffff;
       cursor: pointer;
-      width: 100%;
     }
 
-    #descValueSelect:hover {
-      border-color: var(--accent);
+    .desc-axis-btn:hover {
+      border-color: #0f766e;
+      color: #0f766e;
+      background: #ecfeff;
     }
 
-    #descValueSelect:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+    .desc-axis-btn.active {
+      border-color: #0f766e;
+      color: #115e59;
+      background: #ccfbf1;
+      font-weight: 700;
+    }
+
+    .desc-axis-btn-right.active {
+      border-color: #dc2626;
+      color: #7f1d1d;
+      background: #fee2e2;
     }
 
     .desc-list {
@@ -727,6 +774,10 @@
     }
 
     .desc-value-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       padding: 8px 10px;
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -749,6 +800,80 @@
       color: #115e59;
       font-weight: 600;
       box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+    }
+
+    .desc-value-item.secondary-selected {
+      background: #fee2e2;
+      border-color: #dc2626;
+      color: #7f1d1d;
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.14);
+    }
+
+    .desc-value-item.selected.secondary-selected {
+      background: linear-gradient(90deg, var(--accent-soft) 0%, #fee2e2 100%);
+      border-color: #7c3aed;
+      color: #312e81;
+    }
+
+    .desc-value-item.favorite-selected {
+      border-left: 4px solid #f59e0b;
+      padding-left: 7px;
+    }
+
+    .desc-value-item.drag-source {
+      opacity: 0.65;
+    }
+
+    .desc-value-item.drag-target {
+      outline: 2px dashed #f59e0b;
+      outline-offset: 1px;
+    }
+
+    .desc-drag-handle {
+      border: 1px dashed #cbd5e1;
+      background: #fffdf5;
+      color: #92400e;
+      border-radius: 6px;
+      padding: 1px 5px;
+      cursor: grab;
+      font-size: 12px;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+
+    .desc-drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .desc-favorite-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex: 0 0 auto;
+    }
+
+    .desc-favorite-btn {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .desc-favorite-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #f0fdfa;
+    }
+
+    .desc-favorite-btn.active {
+      border-color: #f59e0b;
+      color: #92400e;
+      background: #fef3c7;
+      font-weight: 700;
     }
 
     #chartInfo {
@@ -802,6 +927,7 @@
       #descPanel {
         max-height: 200px;
       }
+
     }
 
     .desc-search-match {

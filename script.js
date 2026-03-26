@@ -14,12 +14,12 @@
     const chartArea = document.getElementById('chartArea');
     const chartCard = document.querySelector('.chart-card');
     const chartInfo = document.getElementById('chartInfo');
+    const dualValueToggleBtn = document.getElementById('dualValueToggleBtn');
     const stepToggleBtn = document.getElementById('stepToggleBtn');
     const compareToggleBtn = document.getElementById('compareToggleBtn');
+    const favoritesSortToggleBtn = document.getElementById('favoritesSortToggleBtn');
     const descSelector = document.getElementById('descSelector');
-    const descValueSelect = document.getElementById('descValueSelect');
     const descSearchInput = document.getElementById('descSearchInput');
-    const selectorToggleBtn = document.getElementById('selectorToggleBtn');
     const loadedFilesEl = document.getElementById('loadedFiles');
     const fileActionModal = document.getElementById('fileActionModal');
     const actionRenameBtn = document.getElementById('actionRenameBtn');
@@ -32,7 +32,8 @@
     let currentDescValues = [];
     let currentRawContent = '';
     let selectedDescIndex = 0;
-    let useListView = false;
+    let secondaryDescIndex = 1;
+    let useListView = true;
     let currentDescText = '';
     let currentThingValueType = '';
     let loadedFiles = [];
@@ -40,6 +41,9 @@
     let modalFileIndex = -1;
     let activeFileColor = '';
     let useStepDiagram = false;
+    let useDualValueChart = false;
+    let favoriteDescIds = [];
+    let favoritesSortEnabled = true;
     let showAllFilesInChart = false;
     let showRawSplitView = false;
     let rawViewMode = 'single';
@@ -135,7 +139,11 @@
           rawViewMode,
           selectedFileIds: Array.from(selectedFileIds),
           showAllFilesInChart,
-          useStepDiagram
+          useStepDiagram,
+          useDualValueChart,
+          secondaryDescIndex,
+          favoriteDescIds,
+          favoritesSortEnabled
         };
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
       } catch (error) {
@@ -190,7 +198,15 @@
       showRawSplitView = rawViewMode === 'multiple';
       showAllFilesInChart = Boolean(parsed.showAllFilesInChart);
       useStepDiagram = Boolean(parsed.useStepDiagram);
+      useDualValueChart = Boolean(parsed.useDualValueChart);
+      secondaryDescIndex = Number.isInteger(parsed.secondaryDescIndex) ? parsed.secondaryDescIndex : 1;
+      favoriteDescIds = Array.isArray(parsed.favoriteDescIds)
+        ? parsed.favoriteDescIds.filter((id) => typeof id === 'string')
+        : [];
+      favoritesSortEnabled = parsed.favoritesSortEnabled !== false;
       updateStepToggleButton();
+      updateDualValueToggleButton();
+      updateFavoritesSortToggleButton();
       updateCompareToggleButton();
       updateViewModeButtons();
 
@@ -370,6 +386,10 @@
       activeFileColor = '';
       showAllFilesInChart = false;
       useStepDiagram = false;
+      useDualValueChart = false;
+      secondaryDescIndex = 1;
+      favoriteDescIds = [];
+      favoritesSortEnabled = true;
       showRawSplitView = false;
       rawViewMode = 'single';
       selectedFileIds.clear();
@@ -388,6 +408,9 @@
       updateRawTabView();
       updateRawEditActions();
       updateStepToggleButton();
+      updateDualValueToggleButton();
+      updateFavoritesSortToggleButton();
+      updateDualValueControls();
       updateCompareToggleButton();
       persistState();
     }
@@ -711,6 +734,7 @@
       currentThingValueType = thingValueType;
       currentDescValues = descValues;
       selectedDescIndex = 0;
+      secondaryDescIndex = descValues.length > 1 ? 1 : 0;
 
       currentDescText = [
         `Thing value type: ${thingValueType}`,
@@ -758,35 +782,177 @@
       return filteredIndexes;
     }
 
+    function getDescLabelByIndex(index) {
+      const rawId = currentDescValues[index];
+      if (typeof rawId === 'undefined') {
+        return `Value ${index + 1}`;
+      }
 
-    function populateDescSelector(descValuesArray) {
-      // Always populate dropdown
-      descValueSelect.innerHTML = '';
-      const filteredIndexes = getFilteredDescIndexes();
+      const readableName = getMeasurementName(rawId);
+      return readableName !== rawId ? `${readableName} (ID: ${rawId})` : rawId;
+    }
 
-      filteredIndexes.forEach((descIndex) => {
-        const value = descValuesArray[descIndex];
-        const option = document.createElement('option');
-        option.value = descIndex;
-        const label = getMeasurementName(value);
-        option.textContent = label;
-        option.dataset.rawId = value;
-        descValueSelect.appendChild(option);
+    function normalizeFavoriteDescIds() {
+      const availableIds = new Set(currentDescValues.map((value) => String(value)));
+      const deduped = [];
+      const seen = new Set();
+
+      favoriteDescIds.forEach((id) => {
+        const key = String(id);
+        if (!availableIds.has(key) || seen.has(key)) {
+          return;
+        }
+
+        seen.add(key);
+        deduped.push(key);
       });
 
+      favoriteDescIds = deduped;
+    }
+
+    function getSortedDescIndexes(filteredIndexes) {
+      if (!favoritesSortEnabled) {
+        return [...filteredIndexes];
+      }
+
+      normalizeFavoriteDescIds();
+      const favoritePos = new Map(favoriteDescIds.map((id, position) => [id, position]));
+
+      return [...filteredIndexes].sort((a, b) => {
+        const idA = String(currentDescValues[a]);
+        const idB = String(currentDescValues[b]);
+        const posA = favoritePos.get(idA);
+        const posB = favoritePos.get(idB);
+        const isFavA = Number.isInteger(posA);
+        const isFavB = Number.isInteger(posB);
+
+        if (isFavA && isFavB) {
+          return posA - posB;
+        }
+
+        if (isFavA) {
+          return -1;
+        }
+
+        if (isFavB) {
+          return 1;
+        }
+
+        return a - b;
+      });
+    }
+
+    function toggleFavoriteByIndex(index) {
+      const rawId = String(currentDescValues[index]);
+      const existingPos = favoriteDescIds.indexOf(rawId);
+
+      if (existingPos >= 0) {
+        favoriteDescIds.splice(existingPos, 1);
+      } else {
+        favoriteDescIds.push(rawId);
+      }
+
+      updateDescDisplay();
+      persistState();
+    }
+
+    function updateFavoritesSortToggleButton() {
+      if (!favoritesSortToggleBtn) {
+        return;
+      }
+
+      favoritesSortToggleBtn.textContent = favoritesSortEnabled ? 'Favorites Order: ON' : 'Favorites Order: OFF';
+      favoritesSortToggleBtn.classList.toggle('active', favoritesSortEnabled);
+    }
+
+    function moveFavoriteBefore(draggedRawId, targetRawId) {
+      if (!draggedRawId || !targetRawId || draggedRawId === targetRawId) {
+        return;
+      }
+
+      const sourcePos = favoriteDescIds.indexOf(draggedRawId);
+      const targetPos = favoriteDescIds.indexOf(targetRawId);
+      if (sourcePos < 0 || targetPos < 0) {
+        return;
+      }
+
+      favoriteDescIds.splice(sourcePos, 1);
+      const adjustedTargetPos = sourcePos < targetPos ? targetPos - 1 : targetPos;
+      favoriteDescIds.splice(adjustedTargetPos, 0, draggedRawId);
+      updateDescDisplay();
+      persistState();
+    }
+
+    function updateDualValueToggleButton() {
+      if (!dualValueToggleBtn) {
+        return;
+      }
+
+      dualValueToggleBtn.textContent = useDualValueChart ? 'Dual Axis: ON' : 'Dual Axis: OFF';
+      dualValueToggleBtn.classList.toggle('active', useDualValueChart);
+      dualValueToggleBtn.disabled = currentDescValues.length < 2 || showAllFilesInChart;
+    }
+
+    function ensureDistinctDescIndexes() {
+      if (!useDualValueChart || currentDescValues.length < 2) {
+        return;
+      }
+
+      if (secondaryDescIndex !== selectedDescIndex) {
+        return;
+      }
+
+      const fallbackIndex = selectedDescIndex === 0 ? 1 : 0;
+      secondaryDescIndex = fallbackIndex < currentDescValues.length ? fallbackIndex : selectedDescIndex;
+    }
+
+    function selectSecondaryDescValue(index) {
+      if (useDualValueChart && !showAllFilesInChart) {
+        if (index === selectedDescIndex) {
+          const previousLeft = selectedDescIndex;
+          selectedDescIndex = secondaryDescIndex;
+          secondaryDescIndex = previousLeft;
+        } else {
+          secondaryDescIndex = index;
+        }
+      } else {
+        secondaryDescIndex = index;
+      }
+
+      ensureDistinctDescIndexes();
+      updateDescDisplay();
+      updateDualValueControls();
+      renderLineChart();
+      persistState();
+    }
+
+    function updateDualValueControls() {
+      const canUseDual = currentDescValues.length > 1;
+
+      if (!canUseDual) {
+        useDualValueChart = false;
+      }
+
+      ensureDistinctDescIndexes();
+      updateDualValueToggleButton();
+    }
+
+
+    function populateDescSelector(descValuesArray) {
       // Show/hide selector based on values
       if (descValuesArray.length > 0) {
         descSelector.style.display = 'block';
+        updateDualValueControls();
         updateDescDisplay();
       } else {
         descSelector.style.display = 'none';
+        updateDualValueControls();
       }
     }
 
     function updateDescDisplay() {
-      // Update dropdown selection
-      const filteredIndexes = getFilteredDescIndexes();
-      descValueSelect.value = String(selectedDescIndex);
+      const filteredIndexes = getSortedDescIndexes(getFilteredDescIndexes());
+      const showDualActions = useDualValueChart && !showAllFilesInChart && currentDescValues.length > 1;
 
       if (!filteredIndexes.length) {
         descPanel.className = 'desc-mode';
@@ -803,6 +969,8 @@
 
         filteredIndexes.forEach((index) => {
           const value = currentDescValues[index];
+          const rawId = String(value);
+          const isFavorite = favoriteDescIds.includes(rawId);
           const item = document.createElement('div');
           item.className = 'desc-value-item';
           const readableName = getMeasurementName(value);
@@ -813,6 +981,102 @@
 
           if (index === selectedDescIndex) {
             item.classList.add('selected');
+          }
+
+          if (showDualActions && index === secondaryDescIndex) {
+            item.classList.add('secondary-selected');
+          }
+
+          if (isFavorite) {
+            item.classList.add('favorite-selected');
+
+            const dragHandle = document.createElement('button');
+            dragHandle.type = 'button';
+            dragHandle.className = 'desc-drag-handle';
+            dragHandle.textContent = '⋮⋮';
+            dragHandle.title = 'Drag to reorder favorites';
+            dragHandle.draggable = true;
+
+            dragHandle.addEventListener('click', (event) => {
+              event.stopPropagation();
+            });
+
+            dragHandle.addEventListener('dragstart', (event) => {
+              event.stopPropagation();
+              if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', rawId);
+              }
+              item.classList.add('drag-source');
+            });
+
+            dragHandle.addEventListener('dragend', () => {
+              item.classList.remove('drag-source');
+              document.querySelectorAll('.desc-value-item.drag-target').forEach((el) => {
+                el.classList.remove('drag-target');
+              });
+            });
+
+            item.prepend(dragHandle);
+
+            item.addEventListener('dragover', (event) => {
+              event.preventDefault();
+              item.classList.add('drag-target');
+            });
+
+            item.addEventListener('dragleave', () => {
+              item.classList.remove('drag-target');
+            });
+
+            item.addEventListener('drop', (event) => {
+              event.preventDefault();
+              item.classList.remove('drag-target');
+              const draggedRawId = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+              moveFavoriteBefore(draggedRawId, rawId);
+            });
+          }
+
+          const favoriteActions = document.createElement('div');
+          favoriteActions.className = 'desc-favorite-actions';
+
+          const favoriteBtn = document.createElement('button');
+          favoriteBtn.type = 'button';
+          favoriteBtn.className = `desc-favorite-btn${isFavorite ? ' active' : ''}`;
+          favoriteBtn.textContent = isFavorite ? '★' : '☆';
+          favoriteBtn.title = isFavorite ? 'Remove favorite' : 'Add favorite';
+          favoriteBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            toggleFavoriteByIndex(index);
+          });
+          favoriteActions.appendChild(favoriteBtn);
+
+          item.appendChild(favoriteActions);
+
+          if (showDualActions) {
+            const axisActions = document.createElement('div');
+            axisActions.className = 'desc-axis-actions';
+
+            const leftBtn = document.createElement('button');
+            leftBtn.type = 'button';
+            leftBtn.className = `desc-axis-btn${index === selectedDescIndex ? ' active' : ''}`;
+            leftBtn.textContent = 'Left';
+            leftBtn.addEventListener('click', (event) => {
+              event.stopPropagation();
+              selectDescValue(index);
+            });
+
+            const rightBtn = document.createElement('button');
+            rightBtn.type = 'button';
+            rightBtn.className = `desc-axis-btn desc-axis-btn-right${index === secondaryDescIndex ? ' active' : ''}`;
+            rightBtn.textContent = 'Right';
+            rightBtn.addEventListener('click', (event) => {
+              event.stopPropagation();
+              selectSecondaryDescValue(index);
+            });
+
+            axisActions.appendChild(leftBtn);
+            axisActions.appendChild(rightBtn);
+            item.appendChild(axisActions);
           }
 
           item.addEventListener('click', () => {
@@ -857,15 +1121,23 @@
     }
 
     function selectDescValue(index) {
-      selectedDescIndex = index;
-      updateDescDisplay();
-      renderLineChart();
-    }
+      if (useDualValueChart && !showAllFilesInChart) {
+        if (index === secondaryDescIndex) {
+          const previousLeft = selectedDescIndex;
+          selectedDescIndex = secondaryDescIndex;
+          secondaryDescIndex = previousLeft;
+        } else {
+          selectedDescIndex = index;
+        }
+      } else {
+        selectedDescIndex = index;
+      }
 
-    function toggleSelectorView() {
-      useListView = !useListView;
-      selectorToggleBtn.textContent = useListView ? '≡' : '⊞';
+      ensureDistinctDescIndexes();
       updateDescDisplay();
+      updateDualValueControls();
+      renderLineChart();
+      persistState();
     }
 
     function extractSeries(content, descIndex = 0) {
@@ -889,6 +1161,9 @@
     function renderLineChart() {
       let series = [];
       let sampleCount = 0;
+      const showDualAxes = useDualValueChart && !showAllFilesInChart && currentDescValues.length > 1;
+
+      ensureDistinctDescIndexes();
 
       if (showAllFilesInChart) {
         series = loadedFiles
@@ -904,14 +1179,37 @@
           .filter((s) => s.points.length > 0);
       } else {
         const activeEntry = loadedFiles[activeFileIndex];
-        const points = extractSeries(currentRawContent, selectedDescIndex);
-        sampleCount = points.length;
-        if (points.length) {
+        const primaryPoints = extractSeries(currentRawContent, selectedDescIndex);
+        sampleCount = primaryPoints.length;
+
+        if (showDualAxes) {
+          const secondaryPoints = extractSeries(currentRawContent, secondaryDescIndex);
+          sampleCount += secondaryPoints.length;
+
+          if (primaryPoints.length) {
+            series.push({
+              name: `${getDescLabelByIndex(selectedDescIndex)} (LEFT)`,
+              points: primaryPoints,
+              color: activeFileColor || '#0f766e',
+              yAxisIndex: 0
+            });
+          }
+
+          if (secondaryPoints.length) {
+            series.push({
+              name: `${getDescLabelByIndex(secondaryDescIndex)} (RIGHT)`,
+              points: secondaryPoints,
+              color: '#dc2626',
+              yAxisIndex: 1
+            });
+          }
+        } else if (primaryPoints.length) {
           series = [
             {
               name: activeEntry ? activeEntry.name : 'Active File',
-              points,
-              color: activeFileColor || '#0f766e'
+              points: primaryPoints,
+              color: activeFileColor || '#0f766e',
+              yAxisIndex: 0
             }
           ];
         }
@@ -934,6 +1232,8 @@
       const values = allValues;
       const min = Math.min(...values);
       const max = Math.max(...values);
+      const leftAxisColor = showDualAxes ? (activeFileColor || '#0f766e') : '#6b7280';
+      const rightAxisColor = '#dc2626';
 
       if (!chartInstance) {
         chartInstance = window.echarts.init(chartArea);
@@ -970,7 +1270,7 @@
           valueFormatter: (value) => Number(value).toFixed(3)
         },
         legend: {
-          show: showAllFilesInChart,
+          show: showAllFilesInChart || showDualAxes,
           top: 2,
           textStyle: {
             color: '#6b7280'
@@ -989,17 +1289,54 @@
             }
           }
         },
-        yAxis: {
-          type: 'value',
-          axisLabel: {
-            color: '#6b7280'
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#e5e7eb'
-            }
-          }
-        },
+        yAxis: showDualAxes
+          ? [
+              {
+                type: 'value',
+                position: 'left',
+                axisLabel: {
+                  color: leftAxisColor
+                },
+                axisLine: {
+                  show: true,
+                  lineStyle: {
+                    color: leftAxisColor
+                  }
+                },
+                splitLine: {
+                  lineStyle: {
+                    color: '#e5e7eb'
+                  }
+                }
+              },
+              {
+                type: 'value',
+                position: 'right',
+                axisLabel: {
+                  color: rightAxisColor
+                },
+                axisLine: {
+                  show: true,
+                  lineStyle: {
+                    color: rightAxisColor
+                  }
+                },
+                splitLine: {
+                  show: false
+                }
+              }
+            ]
+          : {
+              type: 'value',
+              axisLabel: {
+                color: '#6b7280'
+              },
+              splitLine: {
+                lineStyle: {
+                  color: '#e5e7eb'
+                }
+              }
+            },
         series: [
           ...series.map((entry, index) => ({
             name: entry.name,
@@ -1007,6 +1344,7 @@
             smooth: 0.2,
             step: useStepDiagram ? 'end' : false,
             showSymbol: false,
+            yAxisIndex: Number.isInteger(entry.yAxisIndex) ? entry.yAxisIndex : 0,
             lineStyle: {
               color: entry.color,
               width: 2
@@ -1014,12 +1352,14 @@
             data: entry.points.map((p) => [p.timestamp, p.value])
           }))
         ]
-      });
+      }, { notMerge: true });
 
       chartInstance.resize();
 
       if (showAllFilesInChart) {
         chartInfo.textContent = `Series: ${series.length} | Samples: ${sampleCount} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Mouse wheel: zoom X`;
+      } else if (showDualAxes) {
+        chartInfo.textContent = `Series: ${series.length} | Samples: ${sampleCount} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Left/Right Y-axis active | Mouse wheel: zoom X`;
       } else {
         const last = series[0].points[series[0].points.length - 1];
         chartInfo.textContent = `Samples: ${series[0].points.length} | Min: ${min.toFixed(3)} | Max: ${max.toFixed(3)} | Last (${last.timestamp}): ${last.value.toFixed(3)} | Mouse wheel: zoom X`;
@@ -1046,11 +1386,6 @@
       fileInput.click();
     });
 
-    // When user selects a DESC value to visualize via dropdown
-    descValueSelect.addEventListener('change', (event) => {
-      selectDescValue(Number.parseInt(event.target.value, 10));
-    });
-
     if (descSearchInput) {
       descSearchInput.addEventListener('input', () => {
         if (!currentDescValues.length) {
@@ -1061,15 +1396,41 @@
       });
     }
 
-    // Toggle selector view
-    selectorToggleBtn.addEventListener('click', toggleSelectorView);
-
     compareToggleBtn.addEventListener('click', () => {
       showAllFilesInChart = !showAllFilesInChart;
       updateCompareToggleButton();
+      updateDualValueControls();
       renderLineChart();
       persistState();
     });
+
+    if (favoritesSortToggleBtn) {
+      favoritesSortToggleBtn.addEventListener('click', () => {
+        favoritesSortEnabled = !favoritesSortEnabled;
+        updateFavoritesSortToggleButton();
+        updateDescDisplay();
+        persistState();
+      });
+    }
+
+    if (dualValueToggleBtn) {
+      dualValueToggleBtn.addEventListener('click', () => {
+        if (currentDescValues.length < 2) {
+          return;
+        }
+
+        useDualValueChart = !useDualValueChart;
+        if (useDualValueChart) {
+          useListView = true;
+        }
+        ensureDistinctDescIndexes();
+        updateDualValueToggleButton();
+        updateDualValueControls();
+        updateDescDisplay();
+        renderLineChart();
+        persistState();
+      });
+    }
 
     if (stepToggleBtn) {
       stepToggleBtn.addEventListener('click', () => {
@@ -1277,6 +1638,7 @@
 
     updateStepToggleButton();
     updateCompareToggleButton();
+    updateFavoritesSortToggleButton();
     updateViewModeButtons();
     loadMeasurementMetadata();
     restoreState();
