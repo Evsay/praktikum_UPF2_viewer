@@ -776,9 +776,6 @@
 
       // Show/hide selector based on values
       if (descValuesArray.length > 0) {
-        if (filteredIndexes.length > 0 && !filteredIndexes.includes(selectedDescIndex)) {
-          selectedDescIndex = filteredIndexes[0];
-        }
         descSelector.style.display = 'block';
         updateDescDisplay();
       } else {
@@ -1014,12 +1011,6 @@
               color: entry.color,
               width: 2
             },
-            areaStyle: showAllFilesInChart
-              ? undefined
-              : {
-                  color: entry.color,
-                  opacity: 0.15
-                },
             data: entry.points.map((p) => [p.timestamp, p.value])
           }))
         ]
@@ -1064,12 +1055,6 @@
       descSearchInput.addEventListener('input', () => {
         if (!currentDescValues.length) {
           return;
-        }
-
-        const filteredIndexes = getFilteredDescIndexes();
-        if (filteredIndexes.length > 0 && !filteredIndexes.includes(selectedDescIndex)) {
-          selectedDescIndex = filteredIndexes[0];
-          renderLineChart();
         }
 
         populateDescSelector(currentDescValues);
