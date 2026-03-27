@@ -13,6 +13,7 @@
     <div class="controls">
       <button id="loadBtn">📂 Load File from Disk</button>
       <button id="newBlankBtn">📄 New / Blank</button>
+      <button id="saveLoadedFileBtn">💾 Save Loaded File...</button>
       <input type="file" id="fileInput" style="display: none;" multiple>
       <div id="loadedFiles" aria-live="polite"></div>
     </div>
@@ -87,6 +88,20 @@
         <button type="button" class="color-choice" data-color="#0f766e" aria-label="Green"></button>
       </div>
       <button id="actionCloseBtn" type="button" class="modal-close">Close</button>
+    </div>
+  </div>
+
+  <div id="saveFileModal" class="file-action-modal hidden" aria-hidden="true">
+    <div class="file-action-card" role="dialog" aria-modal="true" aria-labelledby="saveFileTitle">
+      <h3 id="saveFileTitle">Save Loaded File</h3>
+      <div class="file-picker-row">
+        <label for="saveFileSelect">Choose file:</label>
+        <select id="saveFileSelect" aria-label="Choose file to save"></select>
+      </div>
+      <div class="file-action-row">
+        <button id="confirmSaveFileBtn" type="button" class="modal-btn">Choose Location &amp; Save</button>
+      </div>
+      <button id="cancelSaveFileBtn" type="button" class="modal-close">Cancel</button>
     </div>
   </div>
 

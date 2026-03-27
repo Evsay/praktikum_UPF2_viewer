@@ -1,5 +1,5 @@
   const loadBtn = document.getElementById('loadBtn');
-    const newBlankBtn = document.getElementById('newBlankBtn');
+    const saveLoadedFileBtn = document.getElementById('saveLoadedFileBtn');
     const fileInput = document.getElementById('fileInput');
     const textArea = document.getElementById('textArea');
   const rawSplitView = document.getElementById('rawSplitView');
@@ -30,6 +30,10 @@
     const actionCloseBtn = document.getElementById('actionCloseBtn');
     const fileColorChoices = document.getElementById('fileColorChoices');
     const colorChoiceButtons = document.querySelectorAll('.color-choice');
+    const saveFileModal = document.getElementById('saveFileModal');
+    const saveFileSelect = document.getElementById('saveFileSelect');
+    const confirmSaveFileBtn = document.getElementById('confirmSaveFileBtn');
+    const cancelSaveFileBtn = document.getElementById('cancelSaveFileBtn');
     let chartInstance = null;
     let currentDescValues = [];
     let currentRawContent = '';
@@ -836,6 +840,77 @@
       fileColorChoices.classList.add('hidden');
       fileActionModal.classList.add('hidden');
       fileActionModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function populateSaveFileSelect() {
+      if (!saveFileSelect) {
+        return;
+      }
+
+      saveFileSelect.innerHTML = '';
+      loadedFiles.forEach((entry) => {
+        const option = document.createElement('option');
+        option.value = entry.id;
+        option.textContent = entry.name;
+        saveFileSelect.appendChild(option);
+      });
+    }
+
+    function openSaveFileModal() {
+      if (!saveFileModal || !saveFileSelect) {
+        return;
+      }
+
+      if (!loadedFiles.length) {
+        window.alert('No loaded file available. Please load a file first.');
+        return;
+      }
+
+      populateSaveFileSelect();
+
+      if (activeFileIndex >= 0 && loadedFiles[activeFileIndex]) {
+        saveFileSelect.value = loadedFiles[activeFileIndex].id;
+      }
+
+      saveFileModal.classList.remove('hidden');
+      saveFileModal.setAttribute('aria-hidden', 'false');
+      saveFileSelect.focus();
+    }
+
+    function closeSaveFileModal() {
+      if (!saveFileModal) {
+        return;
+      }
+
+      saveFileModal.classList.add('hidden');
+      saveFileModal.setAttribute('aria-hidden', 'true');
+    }
+
+    async function saveLoadedFileToDisk(entry) {
+      if (!entry) {
+        return;
+      }
+
+      if (typeof window.showSaveFilePicker === 'function') {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: entry.name || 'exported_file.txt'
+        });
+        const writable = await handle.createWritable();
+        await writable.write(entry.content || '');
+        await writable.close();
+        return;
+      }
+
+      const blob = new Blob([entry.content || ''], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = entry.name || 'exported_file.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      window.alert('Save dialog is not supported in this browser. The file was downloaded instead.');
     }
 
     function createFileChip(entry, index) {
@@ -1872,19 +1947,9 @@
       fileInput.click();
     });
 
-    if (newBlankBtn) {
-      newBlankBtn.addEventListener('click', () => {
-        activeFileIndex = -1;
-        activeFileColor = '';
-        selectedFileIds.clear();
-        textArea.value = '';
-        currentRawContent = '';
-        rawViewMode = 'single';
-        showRawSplitView = false;
-        updateViewModeButtons();
-        renderLoadedFiles();
-        updateRawTabView();
-        updateRawEditActions();
+    if (saveLoadedFileBtn) {
+      saveLoadedFileBtn.addEventListener('click', () => {
+        openSaveFileModal();
       });
     }
 
@@ -2122,6 +2187,40 @@
         closeFileActionModal();
       }
     });
+
+    if (confirmSaveFileBtn && saveFileSelect) {
+      confirmSaveFileBtn.addEventListener('click', async () => {
+        const selectedId = saveFileSelect.value;
+        const selectedEntry = loadedFiles.find((entry) => entry.id === selectedId);
+        if (!selectedEntry) {
+          window.alert('Please choose a valid file.');
+          return;
+        }
+
+        try {
+          await saveLoadedFileToDisk(selectedEntry);
+          closeSaveFileModal();
+        } catch (error) {
+          if (error && error.name === 'AbortError') {
+            return;
+          }
+          console.error('Failed to save file:', error);
+          window.alert('Could not save the selected file.');
+        }
+      });
+    }
+
+    if (cancelSaveFileBtn) {
+      cancelSaveFileBtn.addEventListener('click', closeSaveFileModal);
+    }
+
+    if (saveFileModal) {
+      saveFileModal.addEventListener('click', (event) => {
+        if (event.target === saveFileModal) {
+          closeSaveFileModal();
+        }
+      });
+    }
 
     // F2 fallback: rename currently active file unless typing in an input control
     document.addEventListener('keydown', (event) => {
