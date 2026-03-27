@@ -779,7 +779,7 @@
 
       if (isXmlEntry(entry)) {
         chip.classList.add('file-chip-xml');
-        if (entry.id === activeMetadataFileId) {
+        if (entry.id === activeMetadataFileId && isChartTabActive()) {
           chip.classList.add('file-chip-metadata-active');
         }
       }

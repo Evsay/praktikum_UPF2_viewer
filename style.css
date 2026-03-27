@@ -208,14 +208,14 @@
     }
 
     .file-chip.file-chip-xml {
-      background: #fff7ed;
-      border-color: #fdba74;
-      color: #9a3412;
+      background: #eef2f7;
+      border-color: var(--border);
+      color: var(--text);
     }
 
     .file-chip.file-chip-xml:hover {
-      border-color: #f97316;
-      background: #ffedd5;
+      border-color: var(--accent);
+      background: #e7faf7;
     }
 
     .file-chip.file-chip-xml.active {
@@ -225,6 +225,9 @@
     }
 
     .file-chip.file-chip-xml.file-chip-metadata-active {
+      background: #ffedd5;
+      border-color: #ea580c;
+      color: #9a3412;
       box-shadow: inset 0 0 0 2px #ea580c;
       font-weight: 700;
     }
