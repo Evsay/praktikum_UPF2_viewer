@@ -8,6 +8,8 @@
     const discardEditedFileBtn = document.getElementById('discardEditedFileBtn');
     const singleViewBtn = document.getElementById('singleViewBtn');
     const multiViewBtn = document.getElementById('multiViewBtn');
+    const rawKindUpfBtn = document.getElementById('rawKindUpfBtn');
+    const rawKindXmlBtn = document.getElementById('rawKindXmlBtn');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanels = document.querySelectorAll('.tab-panel');
     const descPanel = document.getElementById('descPanel');
@@ -47,6 +49,7 @@
     let showAllFilesInChart = false;
     let showRawSplitView = false;
     let rawViewMode = 'single';
+    let rawVisibleKind = 'upf';
     const selectedFileIds = new Set();
     const storageKey = 'upf2ViewerState.v1';
     let descIdToName = {};
@@ -137,6 +140,7 @@
           activeFileId: loadedFiles[activeFileIndex] ? loadedFiles[activeFileIndex].id : null,
           activeMetadataFileId,
           rawViewMode,
+          rawVisibleKind,
           selectedFileIds: Array.from(selectedFileIds),
           showAllFilesInChart,
           useStepDiagram,
@@ -195,6 +199,7 @@
       });
 
       rawViewMode = parsed.rawViewMode === 'multiple' ? 'multiple' : 'single';
+      rawVisibleKind = parsed.rawVisibleKind === 'xml' ? 'xml' : 'upf';
       showRawSplitView = rawViewMode === 'multiple';
       showAllFilesInChart = Boolean(parsed.showAllFilesInChart);
       useStepDiagram = Boolean(parsed.useStepDiagram);
@@ -209,6 +214,7 @@
       updateFavoritesSortToggleButton();
       updateCompareToggleButton();
       updateViewModeButtons();
+      updateRawKindButtons();
 
       const restoredActiveId = typeof parsed.activeFileId === 'string' ? parsed.activeFileId : '';
       const restoredActiveIndex = loadedFiles.findIndex((entry) => entry.id === restoredActiveId);
@@ -218,11 +224,20 @@
         selectedFileIds.add(loadedFiles[nextIndex].id);
       }
 
+      if (rawVisibleKind === 'xml') {
+        const xmlIndex = loadedFiles.findIndex((entry) => isXmlEntry(entry));
+        if (xmlIndex === -1) {
+          rawVisibleKind = 'upf';
+        }
+      }
+
       setActiveFile(nextIndex, {
         keepSplitView: rawViewMode === 'multiple',
         preserveMode: true,
         syncMultiSelection: false
       });
+
+      ensureActiveFileMatchesRawKind();
 
       renderLoadedFiles();
       updateRawTabView();
@@ -296,11 +311,67 @@
       }
     }
 
+    function getRawEntryKind(entry) {
+      return isXmlEntry(entry) ? 'xml' : 'upf';
+    }
+
+    function isEntryVisibleInRaw(entry) {
+      return getRawEntryKind(entry) === rawVisibleKind;
+    }
+
+    function updateRawKindButtons() {
+      if (rawKindUpfBtn) {
+        const isUpf = rawVisibleKind === 'upf';
+        rawKindUpfBtn.classList.toggle('active', isUpf);
+        rawKindUpfBtn.setAttribute('aria-selected', isUpf ? 'true' : 'false');
+      }
+
+      if (rawKindXmlBtn) {
+        const isXml = rawVisibleKind === 'xml';
+        rawKindXmlBtn.classList.toggle('active', isXml);
+        rawKindXmlBtn.setAttribute('aria-selected', isXml ? 'true' : 'false');
+      }
+    }
+
+    function ensureActiveFileMatchesRawKind() {
+      const activeEntry = loadedFiles[activeFileIndex];
+      if (activeEntry && isEntryVisibleInRaw(activeEntry)) {
+        return true;
+      }
+
+      const nextIndex = loadedFiles.findIndex((entry) => isEntryVisibleInRaw(entry));
+      if (nextIndex < 0) {
+        currentRawContent = '';
+        activeFileColor = '';
+        textArea.value = '';
+        updateRawTabView();
+        updateRawEditActions();
+        return false;
+      }
+
+      setActiveFile(nextIndex, {
+        keepSplitView: rawViewMode === 'multiple',
+        preserveMode: true,
+        syncMultiSelection: false
+      });
+      return true;
+    }
+
+    function setRawVisibleKind(kind) {
+      rawVisibleKind = kind === 'xml' ? 'xml' : 'upf';
+      updateRawKindButtons();
+      ensureActiveFileMatchesRawKind();
+      renderLoadedFiles();
+      updateRawTabView();
+      updateRawEditActions();
+      persistState();
+    }
+
     function setRawViewMode(mode) {
       rawViewMode = mode === 'multiple' ? 'multiple' : 'single';
       showRawSplitView = rawViewMode === 'multiple';
 
-      if (rawViewMode === 'multiple' && activeFileIndex >= 0 && loadedFiles[activeFileIndex]) {
+      if (rawViewMode === 'multiple' && activeFileIndex >= 0 && loadedFiles[activeFileIndex] && isEntryVisibleInRaw(loadedFiles[activeFileIndex])) {
         selectedFileIds.add(loadedFiles[activeFileIndex].id);
       }
 
@@ -312,18 +383,38 @@
     }
 
     function getSplitViewFiles() {
-      const selectedFiles = loadedFiles.filter((entry) => selectedFileIds.has(entry.id));
+      const selectedFiles = loadedFiles.filter((entry) => selectedFileIds.has(entry.id) && isEntryVisibleInRaw(entry));
       if (selectedFiles.length > 0) {
         return selectedFiles;
       }
 
       const activeFile = loadedFiles[activeFileIndex];
-      return activeFile ? [activeFile] : [];
+      if (activeFile && isEntryVisibleInRaw(activeFile)) {
+        return [activeFile];
+      }
+
+      const fallback = loadedFiles.find((entry) => isEntryVisibleInRaw(entry));
+      return fallback ? [fallback] : [];
     }
 
     function sanitizeFileName(name) {
       const cleaned = (name || '').trim();
       return cleaned.length ? cleaned : null;
+    }
+
+    function buildCopyName(fileName) {
+      if (typeof fileName !== 'string' || !fileName.trim()) {
+        return 'new_file.upf2';
+      }
+
+      const dotIndex = fileName.lastIndexOf('.');
+      if (dotIndex <= 0 || dotIndex === fileName.length - 1) {
+        return `${fileName}_copy`;
+      }
+
+      const base = fileName.slice(0, dotIndex);
+      const ext = fileName.slice(dotIndex);
+      return `${base}_copy${ext}`;
     }
 
     function hexToRgba(hex, alpha) {
@@ -392,6 +483,7 @@
       favoritesSortEnabled = true;
       showRawSplitView = false;
       rawViewMode = 'single';
+      rawVisibleKind = 'upf';
       selectedFileIds.clear();
       currentRawContent = '';
       currentDescValues = [];
@@ -405,6 +497,7 @@
         chartInstance.clear();
       }
       updateViewModeButtons();
+      updateRawKindButtons();
       updateRawTabView();
       updateRawEditActions();
       updateStepToggleButton();
@@ -428,14 +521,89 @@
 
         const title = document.createElement('div');
         title.className = 'raw-split-title';
-        title.textContent = entry.name;
+
+        const titleText = document.createElement('span');
+        titleText.className = 'raw-split-title-text';
+        titleText.textContent = entry.name;
 
         const content = document.createElement('textarea');
         content.className = 'raw-split-content';
-        content.readOnly = true;
+        content.readOnly = false;
         content.spellcheck = false;
         content.value = entry.content;
 
+        const paneActions = document.createElement('div');
+        paneActions.className = 'raw-split-actions hidden';
+
+        const keepBtn = document.createElement('button');
+        keepBtn.type = 'button';
+        keepBtn.className = 'raw-split-btn';
+        keepBtn.textContent = 'Keep Current File';
+
+        const createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.className = 'raw-split-btn';
+        createBtn.textContent = 'Create New File';
+
+        const discardBtn = document.createElement('button');
+        discardBtn.type = 'button';
+        discardBtn.className = 'raw-split-btn';
+        discardBtn.textContent = 'Discard Draft';
+
+        const updatePaneActions = () => {
+          const isDirty = content.value !== entry.content;
+          paneActions.classList.toggle('hidden', !isDirty);
+        };
+
+        content.addEventListener('input', updatePaneActions);
+
+        keepBtn.addEventListener('click', () => {
+          entry.content = content.value;
+
+          const activeEntry = loadedFiles[activeFileIndex];
+          if (activeEntry && activeEntry.id === entry.id) {
+            currentRawContent = entry.content;
+
+            if (isXmlEntry(entry)) {
+              currentDescValues = [];
+              currentThingValueType = '';
+              currentDescText = 'XML file selected. Switch to a UPF file to show DESC and chart values.';
+              descPanel.className = '';
+              descPanel.textContent = currentDescText;
+              descSelector.style.display = 'none';
+            } else {
+              formatDesc(extractDesc(entry.content));
+            }
+
+            renderLineChart();
+          }
+
+          updatePaneActions();
+          persistState();
+        });
+
+        createBtn.addEventListener('click', () => {
+          const createdEntry = createNewFileFromEditor(content.value, buildCopyName(entry.name));
+          if (!createdEntry) {
+            return;
+          }
+
+          setRawViewMode('multiple');
+          renderLoadedFiles();
+          updateRawTabView();
+        });
+
+        discardBtn.addEventListener('click', () => {
+          content.value = entry.content;
+          updatePaneActions();
+        });
+
+        paneActions.appendChild(keepBtn);
+        paneActions.appendChild(createBtn);
+        paneActions.appendChild(discardBtn);
+
+        title.appendChild(titleText);
+        title.appendChild(paneActions);
         pane.appendChild(title);
         pane.appendChild(content);
         rawSplitView.appendChild(pane);
@@ -575,8 +743,15 @@
           return;
         }
 
+        const isVisibleInRaw = isEntryVisibleInRaw(entry);
+
         if (isXmlEntry(entry)) {
           setActiveMetadataFileId(entry.id);
+        }
+
+        // Only UPF/XML toolbar buttons are allowed to change visible raw format.
+        // Clicking a chip with a different format should not switch the raw window.
+        if (!isVisibleInRaw) {
           renderLoadedFiles();
           persistState();
           return;
@@ -671,7 +846,16 @@
       if (rawViewMode === 'multiple' && syncMultiSelection) {
         selectedFileIds.add(selectedFile.id);
       }
-      formatDesc(extractDesc(selectedFile.content));
+      if (isXmlEntry(selectedFile)) {
+        currentDescValues = [];
+        currentThingValueType = '';
+        currentDescText = 'XML file selected. Switch to a UPF file to show DESC and chart values.';
+        descPanel.className = '';
+        descPanel.textContent = currentDescText;
+        descSelector.style.display = 'none';
+      } else {
+        formatDesc(extractDesc(selectedFile.content));
+      }
       renderLineChart();
       updateViewModeButtons();
       renderLoadedFiles();
@@ -976,7 +1160,12 @@
           const readableName = getMeasurementName(value);
           const displayText = readableName !== value ? `${readableName} (ID: ${value})` : value;
           const highlightedHtml = highlightSearchMatches(displayText, query);
-          item.innerHTML = highlightedHtml;
+          
+          // Wrap highlighted HTML in a span so all inline content stays together as one flex child
+          const textWrapper = document.createElement('span');
+          textWrapper.innerHTML = highlightedHtml;
+          item.appendChild(textWrapper);
+          
           item.dataset.index = index;
 
           if (index === selectedDescIndex) {
@@ -987,8 +1176,8 @@
             item.classList.add('secondary-selected');
           }
 
-          if (isFavorite) {
-            item.classList.add('favorite-selected');
+          if (isFavorite && favoritesSortEnabled) {
+            item.classList.add('favorite-highlight');
 
             const dragHandle = document.createElement('button');
             dragHandle.type = 'button';
@@ -1006,6 +1195,20 @@
               if (event.dataTransfer) {
                 event.dataTransfer.effectAllowed = 'move';
                 event.dataTransfer.setData('text/plain', rawId);
+
+                // Show the whole row as drag preview instead of only the small handle.
+                const preview = item.cloneNode(true);
+                preview.style.position = 'fixed';
+                preview.style.top = '-9999px';
+                preview.style.left = '-9999px';
+                preview.style.pointerEvents = 'none';
+                preview.style.width = `${item.getBoundingClientRect().width}px`;
+                preview.classList.add('drag-preview');
+                document.body.appendChild(preview);
+                event.dataTransfer.setDragImage(preview, 18, 18);
+                setTimeout(() => {
+                  preview.remove();
+                }, 0);
               }
               item.classList.add('drag-source');
             });
@@ -1036,21 +1239,23 @@
             });
           }
 
-          const favoriteActions = document.createElement('div');
-          favoriteActions.className = 'desc-favorite-actions';
+          if (favoritesSortEnabled) {
+            const favoriteActions = document.createElement('div');
+            favoriteActions.className = 'desc-favorite-actions';
 
-          const favoriteBtn = document.createElement('button');
-          favoriteBtn.type = 'button';
-          favoriteBtn.className = `desc-favorite-btn${isFavorite ? ' active' : ''}`;
-          favoriteBtn.textContent = isFavorite ? '★' : '☆';
-          favoriteBtn.title = isFavorite ? 'Remove favorite' : 'Add favorite';
-          favoriteBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            toggleFavoriteByIndex(index);
-          });
-          favoriteActions.appendChild(favoriteBtn);
+            const favoriteBtn = document.createElement('button');
+            favoriteBtn.type = 'button';
+            favoriteBtn.className = `desc-favorite-btn${isFavorite ? ' active' : ''}`;
+            favoriteBtn.textContent = isFavorite ? '★' : '☆';
+            favoriteBtn.title = isFavorite ? 'Remove favorite' : 'Add favorite';
+            favoriteBtn.addEventListener('click', (event) => {
+              event.stopPropagation();
+              toggleFavoriteByIndex(index);
+            });
+            favoriteActions.appendChild(favoriteBtn);
 
-          item.appendChild(favoriteActions);
+            item.appendChild(favoriteActions);
+          }
 
           if (showDualActions) {
             const axisActions = document.createElement('div');
@@ -1449,10 +1654,22 @@
 
     if (multiViewBtn) {
       multiViewBtn.addEventListener('click', () => {
-        if (activeFileIndex >= 0 && loadedFiles[activeFileIndex]) {
+        if (activeFileIndex >= 0 && loadedFiles[activeFileIndex] && isEntryVisibleInRaw(loadedFiles[activeFileIndex])) {
           selectedFileIds.add(loadedFiles[activeFileIndex].id);
         }
         setRawViewMode('multiple');
+      });
+    }
+
+    if (rawKindUpfBtn) {
+      rawKindUpfBtn.addEventListener('click', () => {
+        setRawVisibleKind('upf');
+      });
+    }
+
+    if (rawKindXmlBtn) {
+      rawKindXmlBtn.addEventListener('click', () => {
+        setRawVisibleKind('xml');
       });
     }
 
@@ -1505,7 +1722,7 @@
       createEditedFileBtn.addEventListener('click', () => {
         const content = textArea.value;
         const activeEntry = loadedFiles[activeFileIndex];
-        const defaultName = activeEntry ? `${activeEntry.name}_copy.upf2` : 'new_file.upf2';
+        const defaultName = activeEntry ? buildCopyName(activeEntry.name) : 'new_file.upf2';
         const createdEntry = createNewFileFromEditor(content, defaultName);
         if (!createdEntry) {
           return;
@@ -1640,6 +1857,7 @@
     updateCompareToggleButton();
     updateFavoritesSortToggleButton();
     updateViewModeButtons();
+    updateRawKindButtons();
     loadMeasurementMetadata();
     restoreState();
 
@@ -1648,6 +1866,8 @@
       const files = Array.from(event.target.files || []);
 
       if (!files.length) return;
+
+      const hadFilesBefore = loadedFiles.length > 0;
 
       try {
         const entries = await Promise.all(
@@ -1660,22 +1880,18 @@
           }))
         );
 
-        const addedIds = [];
         entries.forEach((entry) => {
           if (!loadedFiles.some((existing) => existing.id === entry.id)) {
             loadedFiles.push(entry);
-            addedIds.push(entry.id);
           }
         });
 
-        if (activeFileIndex === -1 && loadedFiles.length > 0) {
-          setActiveFile(0);
-        } else {
-          const firstAddedId = addedIds[0];
-          if (firstAddedId) {
-            const newIndex = loadedFiles.findIndex((f) => f.id === firstAddedId);
-            setActiveFile(newIndex);
-          }
+        // Auto-open only on the very first load into an empty viewer.
+        if (!hadFilesBefore && activeFileIndex === -1) {
+          ensureActiveFileMatchesRawKind();
+          renderLoadedFiles();
+          updateRawTabView();
+          updateRawEditActions();
         }
 
         renderLoadedFiles();

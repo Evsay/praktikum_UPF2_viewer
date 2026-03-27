@@ -16,10 +16,6 @@
       <button id="loadBtn">📂 Load File from Disk</button>
       <input type="file" id="fileInput" style="display: none;" multiple>
       <div id="loadedFiles" aria-live="polite"></div>
-      <div class="view-mode-controls" role="group" aria-label="Raw content view mode">
-        <button id="singleViewBtn" class="view-mode-btn active" type="button">Single File</button>
-        <button id="multiViewBtn" class="view-mode-btn" type="button">Multiple View</button>
-      </div>
     </div>
 
     <div class="tabs">
@@ -28,6 +24,16 @@
     </div>
 
     <section id="tab-raw" class="tab-panel active">
+      <div class="raw-toolbar">
+        <div class="view-mode-controls" role="group" aria-label="Raw content view mode">
+          <button id="singleViewBtn" class="view-mode-btn active" type="button">Single File</button>
+          <button id="multiViewBtn" class="view-mode-btn" type="button">Multiple View</button>
+        </div>
+        <div class="raw-kind-tabs" role="tablist" aria-label="Visible raw file type">
+          <button id="rawKindUpfBtn" class="raw-kind-tab active" type="button" role="tab" aria-selected="true">UPF</button>
+          <button id="rawKindXmlBtn" class="raw-kind-tab" type="button" role="tab" aria-selected="false">XML</button>
+        </div>
+      </div>
       <textarea id="textArea" placeholder="File content will appear here..."></textarea>
       <div id="rawEditActions" class="raw-edit-actions hidden">
         <button id="keepEditedFileBtn" class="raw-edit-btn" type="button">Keep Current File</button>
@@ -42,13 +48,13 @@
         <article class="card desc-card">
           <div class="desc-title-row">
             <h2>DESC</h2>
+            <button id="favoritesSortToggleBtn" class="favorites-sort-btn" type="button">Favorites Order: ON</button>
             <input id="descSearchInput" type="search" placeholder="Search ID or name" aria-label="Search DESC values">
           </div>
           <div id="descPanel">Load a file to show DESC.</div>
           <div id="descSelector" style="display: none;">
             <div class="selector-header">
               <label>Visualize in list:</label>
-              <button id="favoritesSortToggleBtn" class="favorites-sort-btn" type="button">Favorites Order: ON</button>
             </div>
           </div>
         </article>

@@ -71,11 +71,50 @@
     }
 
     .view-mode-controls {
-      margin-left: auto;
       display: inline-flex;
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
+    }
+
+    .raw-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 0 2px;
+      flex-wrap: wrap;
+    }
+
+    .raw-kind-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .raw-kind-tab {
+      padding: 7px 12px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--muted);
+      line-height: 1.1;
+    }
+
+    .raw-kind-tab:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
+    }
+
+    .raw-kind-tab.active {
+      border-color: #7dd3c7;
+      color: #115e59;
+      background: var(--accent-soft);
+      font-weight: 600;
     }
 
     .view-mode-btn {
@@ -354,7 +393,17 @@
       color: var(--text);
       border-bottom: 1px solid var(--border);
       background: #f3f6f9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       white-space: nowrap;
+      overflow: hidden;
+      height: 36px;
+      box-sizing: border-box;
+    }
+
+    .raw-split-title-text {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -376,6 +425,35 @@
       background: var(--panel);
       overflow: auto;
       box-shadow: none;
+    }
+
+    .raw-split-actions {
+      display: inline-flex;
+      gap: 8px;
+      margin-left: auto;
+      flex-wrap: nowrap;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    button.raw-split-btn {
+      padding: 7px 11px;
+      font-size: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--muted);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      cursor: pointer;
+      line-height: 1.2;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
+    button.raw-split-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: #eefcf8;
     }
 
     button {
@@ -550,6 +628,7 @@
     }
 
     #descSearchInput {
+      margin-left: auto;
       width: 180px;
       max-width: 100%;
       padding: 6px 8px;
@@ -688,15 +767,15 @@
     }
 
     .favorites-sort-btn {
-      margin-left: auto;
       border: 1px solid var(--border);
-      border-radius: 999px;
+      border-radius: 6px;
       background: #ffffff;
       color: var(--muted);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
-      padding: 5px 10px;
+      padding: 6px 8px;
       cursor: pointer;
+      line-height: 1.2;
     }
 
     .favorites-sort-btn:hover {
@@ -730,7 +809,8 @@
     }
 
     .desc-axis-actions {
-      margin-top: 8px;
+      margin-top: 0;
+      margin-left: 8px;
       display: inline-flex;
       gap: 6px;
     }
@@ -776,9 +856,9 @@
     .desc-value-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 8px;
-      padding: 8px 10px;
+      padding: 8px 10px 8px 34px;
       border: 1px solid var(--border);
       border-radius: 4px;
       background: white;
@@ -787,6 +867,7 @@
       font-size: 13px;
       transition: all 0.15s;
       text-align: left;
+      position: relative;
     }
 
     .desc-value-item:hover {
@@ -815,9 +896,9 @@
       color: #312e81;
     }
 
-    .desc-value-item.favorite-selected {
-      border-left: 4px solid #f59e0b;
-      padding-left: 7px;
+    .desc-value-item.favorite-highlight {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
     }
 
     .desc-value-item.drag-source {
@@ -830,11 +911,20 @@
     }
 
     .desc-drag-handle {
-      border: 1px dashed #cbd5e1;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 22px;
+      border: none;
+      border-right: 1px dashed #cbd5e1;
       background: #fffdf5;
       color: #92400e;
-      border-radius: 6px;
-      padding: 1px 5px;
+      border-radius: 4px 0 0 4px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: grab;
       font-size: 12px;
       line-height: 1;
@@ -850,6 +940,7 @@
       align-items: center;
       gap: 4px;
       flex: 0 0 auto;
+      margin-left: auto;
     }
 
     .desc-favorite-btn {
@@ -898,6 +989,7 @@
 
     #tab-raw.active {
       display: flex;
+      flex-direction: column;
       min-height: 0;
       align-items: stretch;
       position: relative;
