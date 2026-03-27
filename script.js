@@ -603,7 +603,61 @@
         content.className = 'raw-split-content';
         content.readOnly = false;
         content.spellcheck = false;
+        content.wrap = 'off';
         content.value = entry.content;
+
+        const editorWrap = document.createElement('div');
+        editorWrap.className = 'raw-split-editor';
+
+        const lineNumbers = document.createElement('pre');
+        lineNumbers.className = 'raw-split-line-numbers';
+
+        const updateLineNumbers = () => {
+          const lineCount = Math.max(1, content.value.split('\n').length);
+          const lines = [];
+          for (let i = 1; i <= lineCount; i += 1) {
+            lines.push(String(i));
+          }
+          lineNumbers.textContent = lines.join('\n');
+        };
+
+        const syncLineNumberScroll = () => {
+          lineNumbers.scrollTop = content.scrollTop;
+        };
+
+        const normalizeWheelDelta = (event) => {
+          let delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+          if (event.deltaMode === 1) {
+            delta *= 16;
+          } else if (event.deltaMode === 2) {
+            delta *= content.clientHeight;
+          }
+          return delta;
+        };
+
+        const syncSplitScrollByDelta = (deltaY, deltaX = 0) => {
+          const panes = rawSplitView.querySelectorAll('.raw-split-content');
+          panes.forEach((paneEl) => {
+            paneEl.scrollTop += deltaY;
+            paneEl.scrollLeft += deltaX;
+            const editorWrapEl = paneEl.parentElement;
+            const numberEl = editorWrapEl ? editorWrapEl.querySelector('.raw-split-line-numbers') : null;
+            if (numberEl instanceof HTMLElement) {
+              numberEl.scrollTop = paneEl.scrollTop;
+            }
+          });
+        };
+
+        const handleShiftWheelSync = (event) => {
+          if (!event.shiftKey) {
+            return;
+          }
+
+          event.preventDefault();
+          const deltaY = normalizeWheelDelta(event);
+          const deltaX = event.deltaX;
+          syncSplitScrollByDelta(deltaY, deltaX);
+        };
 
         const paneActions = document.createElement('div');
         paneActions.className = 'raw-split-actions hidden';
@@ -628,7 +682,17 @@
           paneActions.classList.toggle('hidden', !isDirty);
         };
 
-        content.addEventListener('input', updatePaneActions);
+        content.addEventListener('input', () => {
+          updatePaneActions();
+          updateLineNumbers();
+          syncLineNumberScroll();
+        });
+
+        content.addEventListener('scroll', syncLineNumberScroll);
+
+        content.addEventListener('wheel', handleShiftWheelSync, { passive: false });
+        lineNumbers.addEventListener('wheel', handleShiftWheelSync, { passive: false });
+        editorWrap.addEventListener('wheel', handleShiftWheelSync, { passive: false });
 
         keepBtn.addEventListener('click', () => {
           entry.content = content.value;
@@ -669,6 +733,8 @@
         discardBtn.addEventListener('click', () => {
           content.value = entry.content;
           updatePaneActions();
+          updateLineNumbers();
+          syncLineNumberScroll();
         });
 
         paneActions.appendChild(keepBtn);
@@ -678,7 +744,14 @@
         title.appendChild(titleText);
         title.appendChild(paneActions);
         pane.appendChild(title);
-        pane.appendChild(content);
+
+        editorWrap.appendChild(lineNumbers);
+        editorWrap.appendChild(content);
+        pane.appendChild(editorWrap);
+
+        updateLineNumbers();
+        syncLineNumberScroll();
+
         rawSplitView.appendChild(pane);
       });
     }
@@ -765,17 +838,18 @@
     }
 
     function createFileChip(entry, index) {
+      const chartTabActive = isChartTabActive();
+      const isActiveChip = chartTabActive
+        ? (!isXmlEntry(entry) && entry.id === chartUpfFileId)
+        : index === activeFileIndex;
+
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = `file-chip${index === activeFileIndex ? ' active' : ''}`;
+      chip.className = `file-chip${isActiveChip ? ' active' : ''}`;
       chip.dataset.index = String(index);
       chip.dataset.fileId = entry.id;
       chip.title = entry.name;
       chip.draggable = true;
-
-      if (!isXmlEntry(entry) && entry.id === chartUpfFileId && isChartTabActive()) {
-        chip.classList.add('active');
-      }
 
       if (isXmlEntry(entry)) {
         chip.classList.add('file-chip-xml');
@@ -966,8 +1040,44 @@
         }
       });
 
-      appendFileGroup('UPF Files', upfEntries);
-      appendFileGroup('XML Files', xmlEntries);
+      if (!upfEntries.length && !xmlEntries.length) {
+        return;
+      }
+
+      const inlineRow = document.createElement('div');
+      inlineRow.className = 'file-inline-row';
+
+      const upfLabel = document.createElement('span');
+      upfLabel.className = 'file-inline-label';
+      upfLabel.textContent = 'UPF';
+
+      const upfChipRow = document.createElement('div');
+      upfChipRow.className = 'file-inline-chips';
+      upfEntries.forEach(({ entry, index }) => {
+        upfChipRow.appendChild(createFileChip(entry, index));
+      });
+
+      const divider = document.createElement('span');
+      divider.className = 'file-inline-divider';
+      divider.textContent = '|';
+
+      const xmlLabel = document.createElement('span');
+      xmlLabel.className = 'file-inline-label';
+      xmlLabel.textContent = 'XML';
+
+      const xmlChipRow = document.createElement('div');
+      xmlChipRow.className = 'file-inline-chips';
+      xmlEntries.forEach(({ entry, index }) => {
+        xmlChipRow.appendChild(createFileChip(entry, index));
+      });
+
+      inlineRow.appendChild(upfLabel);
+      inlineRow.appendChild(upfChipRow);
+      inlineRow.appendChild(divider);
+      inlineRow.appendChild(xmlLabel);
+      inlineRow.appendChild(xmlChipRow);
+
+      loadedFilesEl.appendChild(inlineRow);
     }
 
     function setActiveFile(index, options = {}) {
