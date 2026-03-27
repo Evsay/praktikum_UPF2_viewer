@@ -288,6 +288,33 @@
       return newEntry;
     }
 
+    function moveFileBeforeFile(draggedFileId, targetFileId) {
+      const draggedIndex = loadedFiles.findIndex((f) => f.id === draggedFileId);
+      const targetIndex = loadedFiles.findIndex((f) => f.id === targetFileId);
+
+      if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+        return;
+      }
+
+      const draggedFile = loadedFiles[draggedIndex];
+      loadedFiles.splice(draggedIndex, 1);
+
+      const newTargetIndex = loadedFiles.findIndex((f) => f.id === targetFileId);
+      loadedFiles.splice(newTargetIndex, 0, draggedFile);
+
+      // Update activeFileIndex if it was affected
+      if (activeFileIndex === draggedIndex) {
+        activeFileIndex = loadedFiles.findIndex((f) => f.id === draggedFile.id);
+      } else if (draggedIndex < activeFileIndex && newTargetIndex >= activeFileIndex) {
+        activeFileIndex--;
+      } else if (draggedIndex > activeFileIndex && newTargetIndex <= activeFileIndex) {
+        activeFileIndex++;
+      }
+
+      renderLoadedFiles();
+      persistState();
+    }
+
     function updateCompareToggleButton() {
       compareToggleBtn.textContent = showAllFilesInChart ? 'All Files: ON' : 'All Files: OFF';
       compareToggleBtn.classList.toggle('active', showAllFilesInChart);
@@ -696,7 +723,9 @@
       chip.type = 'button';
       chip.className = `file-chip${index === activeFileIndex ? ' active' : ''}`;
       chip.dataset.index = String(index);
+      chip.dataset.fileId = entry.id;
       chip.title = entry.name;
+      chip.draggable = true;
 
       if (isXmlEntry(entry)) {
         chip.classList.add('file-chip-xml');
@@ -734,6 +763,43 @@
 
       chip.appendChild(nameSpan);
       chip.appendChild(renameSpan);
+
+      chip.addEventListener('dragstart', (event) => {
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', entry.id);
+        }
+        chip.classList.add('drag-source');
+      });
+
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('drag-source');
+        document.querySelectorAll('.file-chip.drag-target').forEach((el) => {
+          el.classList.remove('drag-target');
+        });
+      });
+
+      chip.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+        chip.classList.add('drag-target');
+      });
+
+      chip.addEventListener('dragleave', () => {
+        chip.classList.remove('drag-target');
+      });
+
+      chip.addEventListener('drop', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        chip.classList.remove('drag-target');
+        const draggedFileId = event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+        if (draggedFileId && draggedFileId !== entry.id) {
+          moveFileBeforeFile(draggedFileId, entry.id);
+        }
+      });
 
       chip.addEventListener('click', (event) => {
         const renameTarget = event.target;
