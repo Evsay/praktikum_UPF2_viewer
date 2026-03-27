@@ -1261,7 +1261,8 @@
       }
 
       const thingValueType = values[0];
-      const descValues = values.slice(1);
+      // Keep all DESC entries so index 1 is included in the selectable values.
+      const descValues = values;
       currentThingValueType = thingValueType;
       currentDescValues = descValues;
       selectedDescIndex = 0;
