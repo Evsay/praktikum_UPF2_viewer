@@ -878,12 +878,8 @@
           setActiveMetadataFileId(entry.id);
         }
 
-        // Only UPF/XML toolbar buttons are allowed to change visible raw format.
-        // Clicking a chip with a different format should not switch the raw window.
         if (!isVisibleInRaw) {
-          renderLoadedFiles();
-          persistState();
-          return;
+          setRawVisibleKind(getRawEntryKind(entry));
         }
 
         if (rawViewMode === 'multiple') {
@@ -1867,7 +1863,23 @@
         activeEntry.content = textArea.value;
         currentRawContent = activeEntry.content;
         textArea.value = activeEntry.content;
-        formatDesc(extractDesc(activeEntry.content));
+
+        if (isXmlEntry(activeEntry)) {
+          if (activeEntry.id === activeMetadataFileId) {
+            setActiveMetadataFileId(activeEntry.id);
+          }
+          // Keep DESC/chart bound to the selected UPF source while editing XML.
+          const chartEntry = getChartUpfEntry();
+          if (chartEntry) {
+            formatDesc(extractDesc(chartEntry.content));
+          }
+        } else {
+          chartUpfFileId = activeEntry.id;
+          formatDesc(extractDesc(activeEntry.content));
+        }
+
+        updateDualValueControls();
+        updateDescDisplay();
         renderLineChart();
         updateRawEditActions();
         persistState();
