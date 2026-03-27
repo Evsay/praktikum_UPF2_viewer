@@ -873,6 +873,7 @@
         }
 
         const isVisibleInRaw = isEntryVisibleInRaw(entry);
+        let switchedRawKind = false;
 
         if (isXmlEntry(entry)) {
           setActiveMetadataFileId(entry.id);
@@ -880,9 +881,29 @@
 
         if (!isVisibleInRaw) {
           setRawVisibleKind(getRawEntryKind(entry));
+          switchedRawKind = true;
         }
 
         if (rawViewMode === 'multiple') {
+          if (switchedRawKind) {
+            loadedFiles.forEach((candidate) => {
+              if (isEntryVisibleInRaw(candidate)) {
+                selectedFileIds.delete(candidate.id);
+              }
+            });
+            selectedFileIds.add(entry.id);
+
+            setActiveFile(index, {
+              keepSplitView: true,
+              preserveMode: true,
+              syncMultiSelection: false
+            });
+            updateRawTabView();
+            renderLoadedFiles();
+            persistState();
+            return;
+          }
+
           const wasSelected = selectedFileIds.has(entry.id);
           if (selectedFileIds.has(entry.id)) {
             selectedFileIds.delete(entry.id);
