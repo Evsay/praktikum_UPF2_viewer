@@ -291,6 +291,42 @@
       outline-offset: 2px;
     }
 
+    .raw-single-editor {
+      display: flex;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .raw-single-line-numbers {
+      width: 56px;
+      padding: 15px 8px;
+      border-right: 1px solid var(--border);
+      font-size: 15px;
+      line-height: 1.4;
+      text-align: right;
+      color: var(--muted);
+      background: #f3f4f6;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      overflow-y: auto;
+      overflow-x: hidden;
+      white-space: pre;
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+    #tab-raw #textArea {
+      flex: 1 1 auto;
+      border: none;
+      padding: 15px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 15px;
+      line-height: 1.4;
+      resize: none;
+      overflow: auto;
+    }
+
     .hidden {
       display: none !important;
     }

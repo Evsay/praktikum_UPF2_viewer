@@ -1,4 +1,5 @@
   const loadBtn = document.getElementById('loadBtn');
+    const newBlankBtn = document.getElementById('newBlankBtn');
     const fileInput = document.getElementById('fileInput');
     const textArea = document.getElementById('textArea');
   const rawSplitView = document.getElementById('rawSplitView');
@@ -1870,6 +1871,22 @@
     loadBtn.addEventListener('click', () => {
       fileInput.click();
     });
+
+    if (newBlankBtn) {
+      newBlankBtn.addEventListener('click', () => {
+        activeFileIndex = -1;
+        activeFileColor = '';
+        selectedFileIds.clear();
+        textArea.value = '';
+        currentRawContent = '';
+        rawViewMode = 'single';
+        showRawSplitView = false;
+        updateViewModeButtons();
+        renderLoadedFiles();
+        updateRawTabView();
+        updateRawEditActions();
+      });
+    }
 
     if (descSearchInput) {
       descSearchInput.addEventListener('input', () => {
