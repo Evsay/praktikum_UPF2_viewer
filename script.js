@@ -1305,6 +1305,10 @@
             });
           }
 
+          // Create a wrapper for all actions to group them on the right
+          const allActionsWrapper = document.createElement('div');
+          allActionsWrapper.className = 'desc-all-actions-wrapper';
+
           if (favoritesSortEnabled) {
             const favoriteActions = document.createElement('div');
             favoriteActions.className = 'desc-favorite-actions';
@@ -1320,7 +1324,7 @@
             });
             favoriteActions.appendChild(favoriteBtn);
 
-            item.appendChild(favoriteActions);
+            allActionsWrapper.appendChild(favoriteActions);
           }
 
           if (showDualActions) {
@@ -1347,7 +1351,11 @@
 
             axisActions.appendChild(leftBtn);
             axisActions.appendChild(rightBtn);
-            item.appendChild(axisActions);
+            allActionsWrapper.appendChild(axisActions);
+          }
+
+          if (favoritesSortEnabled || showDualActions) {
+            item.appendChild(allActionsWrapper);
           }
 
           item.addEventListener('click', () => {

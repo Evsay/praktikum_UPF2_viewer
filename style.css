@@ -819,9 +819,17 @@
 
     .desc-axis-actions {
       margin-top: 0;
-      margin-left: 8px;
+      margin-left: 0;
       display: inline-flex;
       gap: 6px;
+    }
+
+    .desc-all-actions-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex: 0 0 auto;
     }
 
     .desc-axis-btn {
@@ -949,7 +957,6 @@
       align-items: center;
       gap: 4px;
       flex: 0 0 auto;
-      margin-left: auto;
     }
 
     .desc-favorite-btn {
