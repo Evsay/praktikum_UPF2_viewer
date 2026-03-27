@@ -18,7 +18,6 @@
     const chartInfo = document.getElementById('chartInfo');
     const dualValueToggleBtn = document.getElementById('dualValueToggleBtn');
     const stepToggleBtn = document.getElementById('stepToggleBtn');
-    const compareToggleBtn = document.getElementById('compareToggleBtn');
     const favoritesSortToggleBtn = document.getElementById('favoritesSortToggleBtn');
     const descSelector = document.getElementById('descSelector');
     const descSearchInput = document.getElementById('descSearchInput');
@@ -54,6 +53,7 @@
     const storageKey = 'upf2ViewerState.v1';
     let descIdToName = {};
     let activeMetadataFileId = null;
+    let chartUpfFileId = null;
 
     const seriesPalette = ['#0f766e', '#0284c7', '#f59e0b', '#7c3aed', '#dc2626', '#0891b2'];
 
@@ -133,11 +133,28 @@
       return entry && entry.kind === 'xml';
     }
 
+    function getChartUpfEntry() {
+      const byId = chartUpfFileId
+        ? loadedFiles.find((entry) => entry.id === chartUpfFileId && !isXmlEntry(entry))
+        : null;
+
+      if (byId) {
+        return byId;
+      }
+
+      const firstUpf = loadedFiles.find((entry) => !isXmlEntry(entry)) || null;
+      if (firstUpf) {
+        chartUpfFileId = firstUpf.id;
+      }
+      return firstUpf;
+    }
+
     function persistState() {
       try {
         const payload = {
           loadedFiles,
           activeFileId: loadedFiles[activeFileIndex] ? loadedFiles[activeFileIndex].id : null,
+          chartUpfFileId,
           activeMetadataFileId,
           rawViewMode,
           rawVisibleKind,
@@ -185,6 +202,10 @@
       }
 
       loadedFiles = files;
+      const restoredChartUpfId = typeof parsed.chartUpfFileId === 'string' ? parsed.chartUpfFileId : null;
+      if (restoredChartUpfId && loadedFiles.some((entry) => entry.id === restoredChartUpfId && !isXmlEntry(entry))) {
+        chartUpfFileId = restoredChartUpfId;
+      }
       const restoredMetadataId = typeof parsed.activeMetadataFileId === 'string' ? parsed.activeMetadataFileId : null;
       if (restoredMetadataId && loadedFiles.some((entry) => entry.id === restoredMetadataId && isXmlEntry(entry))) {
         setActiveMetadataFileId(restoredMetadataId);
@@ -316,6 +337,10 @@
     }
 
     function updateCompareToggleButton() {
+      const compareToggleBtn = document.getElementById('compareToggleBtn');
+      if (!compareToggleBtn) {
+        return;
+      }
       compareToggleBtn.textContent = showAllFilesInChart ? 'All Files: ON' : 'All Files: OFF';
       compareToggleBtn.classList.toggle('active', showAllFilesInChart);
     }
@@ -491,9 +516,9 @@
       entry.color = color;
       renderLoadedFiles();
 
-      if (index === activeFileIndex && currentRawContent) {
+      if ((index === activeFileIndex && currentRawContent) || (entry.id === chartUpfFileId && !isXmlEntry(entry))) {
         activeFileColor = color || '';
-        renderLineChart(extractSeries(currentRawContent, selectedDescIndex));
+        renderLineChart();
       }
 
       persistState();
@@ -502,6 +527,7 @@
     function clearViewer() {
       activeFileIndex = -1;
       activeFileColor = '';
+      chartUpfFileId = null;
       showAllFilesInChart = false;
       useStepDiagram = false;
       useDualValueChart = false;
@@ -532,6 +558,26 @@
       updateFavoritesSortToggleButton();
       updateDualValueControls();
       updateCompareToggleButton();
+      persistState();
+    }
+
+    function isChartTabActive() {
+      const activeTabButton = document.querySelector('.tab-btn.active');
+      return Boolean(activeTabButton && activeTabButton.dataset.tab === 'chart');
+    }
+
+    function setChartUpfByIndex(index) {
+      const entry = loadedFiles[index];
+      if (!entry || isXmlEntry(entry)) {
+        return;
+      }
+
+      chartUpfFileId = entry.id;
+      formatDesc(extractDesc(entry.content));
+      updateDualValueControls();
+      updateDescDisplay();
+      renderLineChart();
+      renderLoadedFiles();
       persistState();
     }
 
@@ -727,6 +773,10 @@
       chip.title = entry.name;
       chip.draggable = true;
 
+      if (!isXmlEntry(entry) && entry.id === chartUpfFileId && isChartTabActive()) {
+        chip.classList.add('active');
+      }
+
       if (isXmlEntry(entry)) {
         chip.classList.add('file-chip-xml');
         if (entry.id === activeMetadataFileId) {
@@ -806,6 +856,19 @@
         if (renameTarget instanceof Element && renameTarget.closest('.file-chip-rename')) {
           event.stopPropagation();
           openFileActionModal(index);
+          return;
+        }
+
+        if (isChartTabActive()) {
+          if (!isXmlEntry(entry)) {
+            setChartUpfByIndex(index);
+          } else {
+            setActiveMetadataFileId(entry.id);
+            updateDescDisplay();
+            renderLineChart();
+            renderLoadedFiles();
+            persistState();
+          }
           return;
         }
 
@@ -913,13 +976,16 @@
         selectedFileIds.add(selectedFile.id);
       }
       if (isXmlEntry(selectedFile)) {
-        currentDescValues = [];
-        currentThingValueType = '';
-        currentDescText = 'XML file selected. Switch to a UPF file to show DESC and chart values.';
-        descPanel.className = '';
-        descPanel.textContent = currentDescText;
-        descSelector.style.display = 'none';
+        if (!getChartUpfEntry()) {
+          currentDescValues = [];
+          currentThingValueType = '';
+          currentDescText = 'XML file selected. Switch to a UPF file to show DESC and chart values.';
+          descPanel.className = '';
+          descPanel.textContent = currentDescText;
+          descSelector.style.display = 'none';
+        }
       } else {
+        chartUpfFileId = selectedFile.id;
         formatDesc(extractDesc(selectedFile.content));
       }
       renderLineChart();
@@ -938,6 +1004,18 @@
       tabPanels.forEach((panel) => {
         panel.classList.toggle('active', panel.id === `tab-${tabName}`);
       });
+
+      if (tabName === 'chart') {
+        const chartEntry = getChartUpfEntry();
+        if (chartEntry) {
+          formatDesc(extractDesc(chartEntry.content));
+          updateDualValueControls();
+          updateDescDisplay();
+          renderLineChart();
+        }
+      }
+
+      renderLoadedFiles();
 
       if (tabName === 'chart' && chartInstance) {
         requestAnimationFrame(() => chartInstance.resize());
@@ -1441,11 +1519,13 @@
       let series = [];
       let sampleCount = 0;
       const showDualAxes = useDualValueChart && !showAllFilesInChart && currentDescValues.length > 1;
+      const chartUpfEntry = getChartUpfEntry();
 
       ensureDistinctDescIndexes();
 
       if (showAllFilesInChart) {
         series = loadedFiles
+          .filter((entry) => !isXmlEntry(entry))
           .map((entry, index) => {
             const points = extractSeries(entry.content, selectedDescIndex);
             sampleCount += points.length;
@@ -1456,20 +1536,19 @@
             };
           })
           .filter((s) => s.points.length > 0);
-      } else {
-        const activeEntry = loadedFiles[activeFileIndex];
-        const primaryPoints = extractSeries(currentRawContent, selectedDescIndex);
+      } else if (chartUpfEntry) {
+        const primaryPoints = extractSeries(chartUpfEntry.content, selectedDescIndex);
         sampleCount = primaryPoints.length;
 
         if (showDualAxes) {
-          const secondaryPoints = extractSeries(currentRawContent, secondaryDescIndex);
+          const secondaryPoints = extractSeries(chartUpfEntry.content, secondaryDescIndex);
           sampleCount += secondaryPoints.length;
 
           if (primaryPoints.length) {
             series.push({
               name: `${getDescLabelByIndex(selectedDescIndex)} (LEFT)`,
               points: primaryPoints,
-              color: activeFileColor || '#0f766e',
+              color: chartUpfEntry.color || '#0f766e',
               yAxisIndex: 0
             });
           }
@@ -1485,9 +1564,9 @@
         } else if (primaryPoints.length) {
           series = [
             {
-              name: activeEntry ? activeEntry.name : 'Active File',
+              name: chartUpfEntry.name,
               points: primaryPoints,
-              color: activeFileColor || '#0f766e',
+              color: chartUpfEntry.color || '#0f766e',
               yAxisIndex: 0
             }
           ];
@@ -1511,7 +1590,7 @@
       const values = allValues;
       const min = Math.min(...values);
       const max = Math.max(...values);
-      const leftAxisColor = showDualAxes ? (activeFileColor || '#0f766e') : '#6b7280';
+      const leftAxisColor = showDualAxes ? ((chartUpfEntry && chartUpfEntry.color) || '#0f766e') : '#6b7280';
       const rightAxisColor = '#dc2626';
 
       if (!chartInstance) {
@@ -1675,13 +1754,16 @@
       });
     }
 
-    compareToggleBtn.addEventListener('click', () => {
-      showAllFilesInChart = !showAllFilesInChart;
-      updateCompareToggleButton();
-      updateDualValueControls();
-      renderLineChart();
-      persistState();
-    });
+    const compareToggleBtn = document.getElementById('compareToggleBtn');
+    if (compareToggleBtn) {
+      compareToggleBtn.addEventListener('click', () => {
+        showAllFilesInChart = !showAllFilesInChart;
+        updateCompareToggleButton();
+        updateDualValueControls();
+        renderLineChart();
+        persistState();
+      });
+    }
 
     if (favoritesSortToggleBtn) {
       favoritesSortToggleBtn.addEventListener('click', () => {
